@@ -136,6 +136,8 @@ public class ReleaseWorkflowTests
         Assert.Contains("needs: [verify-size-check-release, build-ci-integrations]", release);
         Assert.Contains("if: \"!contains(github.ref_name, '-')\"", release);
         Assert.Contains("Size check integration (${{ matrix.rid }})", ci);
+        Assert.Contains("Size check integration (container)", ci);
+        Assert.Contains("container: debian:bookworm-slim@sha256:", ci);
         Assert.Contains("windows-11-arm", ci);
         Assert.Contains("macos-26-intel", ci);
         Assert.Contains("pnpm --dir integrations/size-check test:integration", ci);

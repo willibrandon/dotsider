@@ -320,6 +320,17 @@ jobs:
           "baseline=$baseline" >> $env:GITHUB_OUTPUT
           "target=$target" >> $env:GITHUB_OUTPUT
 
+      - name: Upload container integration assets
+        if: matrix.rid == 'linux-x64'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: dotsider-size-check-container-assets
+          path: |
+            artifacts/size-check/linux-x64/dotsider.tar.gz
+            artifacts/size-check/linux-x64/baseline
+            artifacts/size-check/linux-x64/target
+          if-no-files-found: error
+
       - name: Run action with a real comparison
         id: passing
         uses: ./
@@ -395,6 +406,63 @@ jobs:
 
       - name: Test Azure fallback handler on Node.js 20
         run: pnpm --dir integrations/size-check test:azure-integration
+
+  size-check-container:
+    name: Size check integration (container)
+    needs: size-check-integrations
+    permissions:
+      actions: read
+      contents: read
+    runs-on: ubuntu-latest
+    container: debian:bookworm-slim@sha256:0104b334637a5f19aa9c983a91b54c89887c0984081f2068983107a6f6c21eeb
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download container integration assets
+        uses: actions/download-artifact@v8
+        with:
+          name: dotsider-size-check-container-assets
+          path: container-assets
+
+      - name: Unpack Dotsider
+        run: |
+          mkdir container-assets/dotsider
+          tar -xzf container-assets/dotsider.tar.gz -C container-assets/dotsider
+
+      - name: Run action inside the job container
+        id: container
+        uses: ./
+        with:
+          target: container-assets/target/NativeAotConsole
+          baseline: container-assets/baseline/NativeAotConsole
+          budgets: |
+            max=15mb
+            growth=1mb
+          why: 'true'
+          dotsider-version: not-a-release
+          dotsider-path: container-assets/dotsider/dotsider
+          artifact-name: dotsider-size-check-container
+
+      - name: Assert container action outputs
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          [[ '${{ steps.container.outputs.result }}' == passed ]] || fail 'Expected passed result.'
+          [[ '${{ steps.container.outputs.exit-code }}' == 0 ]] || fail 'Expected exit code 0.'
+          [[ '${{ steps.container.outputs.violation-count }}' == 0 ]] || fail 'Expected no budget violations.'
+          [[ -n '${{ steps.container.outputs.baseline-total }}' ]] || fail 'Expected a baseline total.'
+          [[ -s '${{ steps.container.outputs.json-report-path }}' ]] || fail 'Missing JSON report.'
+          [[ -s '${{ steps.container.outputs.markdown-report-path }}' ]] || fail 'Missing Markdown report.'
+          node -e '
+            const report = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+            if (report.budgets?.passed !== true || report.budgets.evaluations?.length !== 2 || report.budgets.hasDeferred) {
+              throw new Error("Expected both budgets to be evaluated against the baseline and pass.");
+            }
+          ' '${{ steps.container.outputs.json-report-path }}'
 
   deploy-tests:
     runs-on: ubuntu-latest
