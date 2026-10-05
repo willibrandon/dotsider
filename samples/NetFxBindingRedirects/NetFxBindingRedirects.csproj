@@ -1,7 +1,7 @@
 <!-- FROZEN TEST FIXTURE — do not modify without updating Dotsider.Tests -->
 <!--
   Root EXE for the NetFxBinder test suite. Targets net48 and exercises every code path:
-    - app-local NuGet binding redirect (Newtonsoft.Json assembly identity 12.0.0.0 -> 13.0.0.0)
+    - app-local binding redirect (signed SharedDep assembly identity 1.0.0.0 -> 2.0.0.0)
     - GAC-only references (System.Drawing, System.Windows.Forms)
     - <probing privatePath="lib"/> (PrivatePathLib copied to lib/)
     - <codeBase href="external/CodeBaseLib.dll"/> (CodeBaseLib copied to external/)
@@ -21,7 +21,6 @@
     <AssemblyName>NetFxBindingRedirects</AssemblyName>
     <AppConfig>app.config</AppConfig>
     <Nullable>annotations</Nullable>
-    <NuGetAudit>false</NuGetAudit>
     <!-- Disable automatic generation: the committed app.config is authoritative
          (it carries the deliberately broken codeBase entry the test expects). -->
     <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
@@ -30,8 +29,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />
-    <!-- Keep the root EXE on a Newtonsoft.Json 13.x package so the redirected target is app-local. -->
-    <PackageReference Include="Newtonsoft.Json" />
+    <ProjectReference Include="..\NetFxBindingRedirects.Clr2.SharedDep.V2\NetFxBindingRedirects.Clr2.SharedDep.V2.csproj" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>

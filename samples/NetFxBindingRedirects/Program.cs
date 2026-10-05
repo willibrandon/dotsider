@@ -29,7 +29,10 @@ namespace NetFxBindingRedirects
             // Each call below forces a real CLR bind whose outcome (FullName + Location) we
             // capture. Touching members on the loaded assemblies prevents JIT/optimization
             // from eliding the bind.
-            Capture(entries, "Newtonsoft.Json", typeof(Newtonsoft.Json.JsonConvert).Assembly);
+            Capture(entries, "NetFxBindingRedirects.Clr2.SharedDep", typeof(Clr2.SharedDep.SharedDepClass).Assembly);
+            if (OldDep.OldDepClass.Marker() != "SharedDep v2.0.0.0"
+                || NewDep.NewDepClass.Marker() != "SharedDep v2.0.0.0")
+                throw new InvalidOperationException("Both dependency versions must bind to SharedDep v2.");
             Capture(entries, "NetFxBindingRedirects.OldDep",
                 typeof(OldDep.OldDepClass).Assembly);
             Capture(entries, "NetFxBindingRedirects.NewDep",

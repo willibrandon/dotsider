@@ -91,7 +91,7 @@ public sealed class NetFxBindingContextTests
         Assert.EndsWith("v4.0.30319", dir, StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>The sample's app config carries the expected Newtonsoft.Json redirect.</summary>
+    /// <summary>The sample's app config carries the expected NetFxBindingRedirects.Clr2.SharedDep redirect.</summary>
     [TestMethod]
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Policy_AppConfig_ParsesAllRedirects()
@@ -101,7 +101,7 @@ public sealed class NetFxBindingContextTests
         using var analyzer = new AssemblyAnalyzer(Samples.NetFxBindingRedirectsExe!);
         var ctx = NetFxBindingContext.TryBuild(analyzer);
         Assert.IsNotNull(ctx);
-        Assert.Contains(r => r.Name == "Newtonsoft.Json" && r.NewVersion == new Version(13, 0, 0, 0), ctx!.Policy.AppConfigRedirects);
+        Assert.Contains(r => r.Name == "NetFxBindingRedirects.Clr2.SharedDep" && r.NewVersion == new Version(2, 0, 0, 0), ctx!.Policy.AppConfigRedirects);
     }
 
     /// <summary>An assemblyBinding with appliesTo="v2.0" is filtered out for net48 roots.</summary>

@@ -20,7 +20,6 @@
          same key without drift. -->
     <AssemblyOriginatorKeyFile>..\NetFxBindingRedirects.Clr2.SharedDep.V1\Clr2.SharedDep.snk</AssemblyOriginatorKeyFile>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
-    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />

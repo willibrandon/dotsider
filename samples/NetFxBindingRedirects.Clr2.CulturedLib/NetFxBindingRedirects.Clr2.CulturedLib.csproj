@@ -30,7 +30,6 @@
     <AssemblyName>NetFxBindingRedirects.Clr2.CulturedLib</AssemblyName>
     <NeutralLanguage>en-US</NeutralLanguage>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
-    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />

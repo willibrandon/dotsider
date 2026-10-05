@@ -25,7 +25,6 @@
     <AssemblyName>NetFxBindingRedirects.Clr2</AssemblyName>
     <AppConfig>app.config</AppConfig>
     <Nullable>annotations</Nullable>
-    <NuGetAudit>false</NuGetAudit>
     <!-- The committed app.config is authoritative (it carries the deliberately broken codeBase
          entry the test expects, plus the explicit <supportedRuntime> CLR2 pin). -->
     <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>

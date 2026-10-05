@@ -146,7 +146,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.Contains("VerifyCommand(\"ttyd\"", initializer);
         Assert.Contains("VerifyCommand(\"vhs\"", initializer);
         Assert.Contains("[\"CI\"] = \"true\"", initializer);
-        Assert.Contains("devcontainers/ci@v0.3", workflow);
+        Assert.Contains("uses: devcontainers/ci@", workflow);
         Assert.Contains("dotnet clean", workflow);
         Assert.Contains("dotnet build --no-restore", workflow);
         Assert.Contains("dotnet test --no-build", workflow);
@@ -389,7 +389,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         Directory.CreateDirectory(results);
         File.WriteAllText(Path.Combine(results, "test.sarif"), sarif);
 
-        var (exitCode, stdout, stderr) = RunFileApp(root, Path.Combine(root, "scripts", "Verify-CodeQl.cs"), results);
+        var (exitCode, stdout, stderr) = RunFileApp(root, Path.Combine(root, "scripts", "Verify-CodeQl.cs"), false, results);
 
         if (expectedExitCode == 0)
             Assert.AreEqual(0, exitCode, stderr);
@@ -404,7 +404,7 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void VerifyCodeQl_RejectsMissingResults()
     {
         string root = FindRepositoryRoot();
-        var (exitCode, _, stderr) = RunFileApp(root, Path.Combine(root, "scripts", "Verify-CodeQl.cs"),
+        var (exitCode, _, stderr) = RunFileApp(root, Path.Combine(root, "scripts", "Verify-CodeQl.cs"), false,
             Path.Combine(_tempRoot, "missing-codeql-results"));
 
         Assert.AreNotEqual(0, exitCode);
@@ -554,6 +554,9 @@ public sealed partial class ScriptConventionTests : IDisposable
     }
 
     private static (int ExitCode, string Stdout, string Stderr) RunDotnet(string workingDirectory, params string[] arguments)
+        => RunDotnet(workingDirectory, true, arguments);
+
+    private static (int ExitCode, string Stdout, string Stderr) RunDotnet(string workingDirectory, bool requireSuccess, params string[] arguments)
     {
         var startInfo = new ProcessStartInfo("dotnet")
         {
@@ -572,7 +575,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         string stdout = process.StandardOutput.ReadToEnd();
         string stderr = process.StandardError.ReadToEnd();
         process.WaitForExit();
-        if (process.ExitCode != 0)
+        if (requireSuccess && process.ExitCode != 0)
         {
             throw new InvalidOperationException($"dotnet {string.Join(' ', arguments)} failed with exit code {process.ExitCode}.{Environment.NewLine}{stdout}{Environment.NewLine}{stderr}");
         }
@@ -581,6 +584,9 @@ public sealed partial class ScriptConventionTests : IDisposable
     }
 
     private static (int ExitCode, string Stdout, string Stderr) RunFileApp(string workingDirectory, string scriptPath, params string[] arguments)
+        => RunFileApp(workingDirectory, scriptPath, true, arguments);
+
+    private static (int ExitCode, string Stdout, string Stderr) RunFileApp(string workingDirectory, string scriptPath, bool requireSuccess, params string[] arguments)
     {
         lock (s_fileAppExecutionLock)
         {
@@ -595,7 +601,7 @@ public sealed partial class ScriptConventionTests : IDisposable
                 "--",
             };
             dotnetArguments.AddRange(arguments);
-            return RunDotnet(workingDirectory, [.. dotnetArguments]);
+            return RunDotnet(workingDirectory, requireSuccess, [.. dotnetArguments]);
         }
     }
 

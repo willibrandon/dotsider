@@ -46,23 +46,23 @@ public sealed class NetFxBinderTests
         Assert.AreEqual(oracle["System.Drawing"].Location, result.LoadedPath, ignoreCase: true);
     }
 
-    /// <summary>Newtonsoft.Json 12 redirects to 13 and resolves from app-local with the
+    /// <summary>NetFxBindingRedirects.Clr2.SharedDep 1 redirects to 2 and resolves from app-local with the
     /// AppliedPolicy annotation populated.</summary>
     [TestMethod]
     [Timeout(30_000, CooperativeCancellation = true)]
-    public void Bind_NewtonsoftJson_RedirectAppliedAndAppLocalHit_MatchesOracleVersionAndPath()
+    public void Bind_SharedDep_RedirectAppliedAndAppLocalHit_MatchesOracleVersionAndPath()
     {
         SkipIfNotWindows();
         var (ctx, oracle) = LoadFixture();
-        var requested = new AssemblyRefInfo("Newtonsoft.Json", "12.0.0.0", "neutral", "30ad4fe6b2a6aeed");
+        var requested = new AssemblyRefInfo("NetFxBindingRedirects.Clr2.SharedDep", "1.0.0.0", "neutral", "e89d2d22dd26920d");
         var result = NetFxBinder.Bind(requested, ctx);
         Assert.AreEqual(AssemblyProvenance.AppLocal, result.Provenance);
         Assert.IsNotNull(result.AppliedPolicy);
-        Assert.AreEqual(new Version(13, 0, 0, 0), result.AppliedPolicy!.BoundVersion);
-        Assert.AreEqual(oracle["Newtonsoft.Json"].Location, result.LoadedPath, ignoreCase: true);
+        Assert.AreEqual(new Version(2, 0, 0, 0), result.AppliedPolicy!.BoundVersion);
+        Assert.AreEqual(oracle["NetFxBindingRedirects.Clr2.SharedDep"].Location, result.LoadedPath, ignoreCase: true);
     }
 
-    /// <summary>Two distinct requested versions of Newtonsoft.Json collapse to the same
+    /// <summary>Two distinct requested versions of NetFxBindingRedirects.Clr2.SharedDep collapse to the same
     /// LoadedAssemblyEntry (reference-equal), proving the LoadedAssemblyCache interns by
     /// bound identity.</summary>
     [TestMethod]
@@ -72,14 +72,14 @@ public sealed class NetFxBinderTests
         SkipIfNotWindows();
         var (ctx, _) = LoadFixture();
         NetFxBinder.ClearCaches(ctx);
-        var v12 = new AssemblyRefInfo("Newtonsoft.Json", "12.0.0.0", "neutral", "30ad4fe6b2a6aeed");
-        var v13 = new AssemblyRefInfo("Newtonsoft.Json", "13.0.0.0", "neutral", "30ad4fe6b2a6aeed");
-        var r12 = NetFxBinder.Bind(v12, ctx);
-        var r13 = NetFxBinder.Bind(v13, ctx);
-        Assert.IsNotNull(r12.Loaded);
-        Assert.IsNotNull(r13.Loaded);
-        Assert.AreEqual(r12.Loaded, r13.Loaded);
-        Assert.AreEqual(r12.LoadedPath, r13.LoadedPath);
+        var v1 = new AssemblyRefInfo("NetFxBindingRedirects.Clr2.SharedDep", "1.0.0.0", "neutral", "e89d2d22dd26920d");
+        var v2 = new AssemblyRefInfo("NetFxBindingRedirects.Clr2.SharedDep", "2.0.0.0", "neutral", "e89d2d22dd26920d");
+        var r1 = NetFxBinder.Bind(v1, ctx);
+        var r2 = NetFxBinder.Bind(v2, ctx);
+        Assert.IsNotNull(r1.Loaded);
+        Assert.IsNotNull(r2.Loaded);
+        Assert.AreEqual(r1.Loaded, r2.Loaded);
+        Assert.AreEqual(r1.LoadedPath, r2.LoadedPath);
     }
 
     /// <summary>Repeated bind requests for the same identity hit the cache; no extra probes.</summary>

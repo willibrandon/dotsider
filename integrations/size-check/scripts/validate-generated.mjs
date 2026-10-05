@@ -1,4 +1,4 @@
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
@@ -31,11 +31,11 @@ for (const root of roots) {
 
   for (const entry of entries) {
     const filePath = path.join(root, entry);
-    const metadata = await stat(filePath);
-    const source = await readFile(filePath, "utf8");
+    const contents = await readFile(filePath);
+    const source = contents.toString("utf8");
     const lines = source.split(/\r?\n/u).length;
-    if (metadata.size > 50 * 1024) {
-      throw new Error(`${entry} is ${metadata.size} bytes; generated modules are limited to 50 KiB.`);
+    if (contents.length > 50 * 1024) {
+      throw new Error(`${entry} is ${contents.length} bytes; generated modules are limited to 50 KiB.`);
     }
     if (lines > 750) {
       throw new Error(`${entry} is ${lines} lines; generated modules are limited to 750 lines.`);
@@ -44,7 +44,7 @@ for (const root of roots) {
     if (marker) {
       throw new Error(`${entry} contains bundler marker '${marker}'. Commit plain tsc output only.`);
     }
-    totalBytes += metadata.size;
+    totalBytes += contents.length;
     totalLines += lines;
   }
 }

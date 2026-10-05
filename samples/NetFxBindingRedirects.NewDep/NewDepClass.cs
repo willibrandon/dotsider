@@ -1,11 +1,11 @@
-using Newtonsoft.Json;
+using NetFxBindingRedirects.Clr2.SharedDep;
 
 namespace NetFxBindingRedirects.NewDep
 {
-    /// <summary>Forces a metadata reference to Newtonsoft.Json 13.0.0.0.</summary>
+    /// <summary>Forces a metadata reference to the signed SharedDep v2 fixture.</summary>
     public static class NewDepClass
     {
-        /// <summary>Round-trips a value through the v13 Newtonsoft serializer.</summary>
-        public static T? Deserialize<T>(string json) => JsonConvert.DeserializeObject<T>(json);
+        /// <summary>Identifies which dependency version the CLR actually bound.</summary>
+        public static string Marker() => SharedDepClass.Marker();
     }
 }

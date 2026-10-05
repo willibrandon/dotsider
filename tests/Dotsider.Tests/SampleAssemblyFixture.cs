@@ -574,6 +574,9 @@ internal class SampleAssemblyFixture
                 "external/ subdir missing — codeBase helper did not deploy");
             Assert.IsTrue(Directory.Exists(Path.Combine(binDir, "fr")),
                 "fr/ subdir missing — culture satellite did not deploy");
+            var sharedDep = Path.Combine(binDir, "NetFxBindingRedirects.Clr2.SharedDep.dll");
+            Assert.AreEqual("2.0.0.0", System.Reflection.AssemblyName.GetAssemblyName(sharedDep).Version?.ToString(),
+                "The redirect target must be the v2 fixture, never the compile-time v1 dependency.");
             Assert.IsNotNull(NetFxBindingRedirectsOracle);
         }
         if (NetFxBindingRedirectsClr2Exe is not null)

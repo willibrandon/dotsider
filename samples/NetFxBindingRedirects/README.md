@@ -1,8 +1,12 @@
 # NetFxBindingRedirects
 
-Six-project net48 fixture used by `tests/Dotsider.Tests/NetFxBinderTests.cs`,
+CLR 4 binding fixture used by `tests/Dotsider.Tests/NetFxBinderTests.cs`,
 `NetFxBindingContextTests.cs`, `NetFxBinderOracleTests.cs`, and the binder regression
-tests in `DependencyGraphBuilderTests.cs`. Targets `net48` so it must build on Windows.
+tests in `DependencyGraphBuilderTests.cs`. The root targets `net48`; its CLR oracle runs on Windows.
+
+The redirect uses the existing signed `Clr2.SharedDep` v1/v2 fixture libraries, which
+also load under CLR 4. This preserves real version-conflict coverage without restoring
+an obsolete, vulnerable NuGet package.
 
 The root EXE plus its post-build orchestration produces a single `bin\Debug\net48\`
 layout that exercises every code path in dotsider's CLR-accurate `NetFxBinder`:
@@ -11,9 +15,9 @@ layout that exercises every code path in dotsider's CLR-accurate `NetFxBinder`:
 |-----------------------------------------------------------|----------------------------------------------------------------------------|
 | `NetFxBindingRedirects.exe`                               | Root identity                                                              |
 | `NetFxBindingRedirects.exe.config`                        | `<bindingRedirect>`, `<probing privatePath>`, `<codeBase>` (success + missing) |
-| `Newtonsoft.Json.dll` (13.0.3)                            | App-local hit after Newtonsoft 12 → 13 binding redirect                    |
-| `NetFxBindingRedirects.OldDep.dll` (refs Newtonsoft 12)   | Transitive redirect (root policy applied to refs from child DLL)           |
-| `NetFxBindingRedirects.NewDep.dll` (refs Newtonsoft 13)   | Same loaded identity as OldDep's bound Newtonsoft — collapses to one node  |
+| `NetFxBindingRedirects.Clr2.SharedDep.dll` (2.0.0.0)                            | App-local hit after SharedDep 1 → 2 binding redirect                    |
+| `NetFxBindingRedirects.OldDep.dll` (refs SharedDep 1)   | Transitive redirect (root policy applied to refs from child DLL)           |
+| `NetFxBindingRedirects.NewDep.dll` (refs SharedDep 2)   | Same loaded identity as OldDep's bound SharedDep — collapses to one node  |
 | `lib\NetFxBindingRedirects.PrivatePathLib.dll`            | `<probing privatePath="lib"/>` rooted at the EXE's app base                |
 | `external\NetFxBindingRedirects.CodeBaseLib.dll`          | `<codeBase href="external/..."/>` resolution                               |
 | `external\Missing.dll` (intentionally absent)             | `<codeBase>` fail-fast → `Provenance.CodeBaseMissing`                      |
