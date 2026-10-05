@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.26.1
+
+- Update the extension packaging tools and dependencies.
+
 ## 0.26.0
 
 - Prefer a successful managed baseline produced from the validated open-PR target commit.

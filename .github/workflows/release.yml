@@ -66,6 +66,7 @@ jobs:
   publish-nuget:
     needs: [build-binaries, build-portable-packages]
     runs-on: ubuntu-latest
+    environment: release
     steps:
       - uses: actions/checkout@v6
 
@@ -80,6 +81,13 @@ jobs:
           pattern: tool-packages-*
           path: ./nupkg
           merge-multiple: true
+
+      # Trusted publishing: nuget.org issues a short-lived key from the workflow's identity.
+      - name: Sign in to nuget.org
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
 
       - name: Push implementation packages before pointer packages
         shell: pwsh
@@ -99,13 +107,13 @@ jobs:
           foreach ($id in $implementationIds) {
             $package = Join-Path ./nupkg "$id.$version.nupkg"
             if (!(Test-Path -LiteralPath $package -PathType Leaf)) { throw "Missing package $package" }
-            dotnet nuget push $package --api-key '${{ secrets.NUGET_API_KEY }}' --source $source --skip-duplicate
+            dotnet nuget push $package --api-key '${{ steps.login.outputs.NUGET_API_KEY }}' --source $source --skip-duplicate
             if ($LASTEXITCODE -ne 0) { throw "Failed to push $package" }
           }
           foreach ($id in @('Dotsider', 'Dotsider.Mcp')) {
             $package = Join-Path ./nupkg "$id.$version.nupkg"
             if (!(Test-Path -LiteralPath $package -PathType Leaf)) { throw "Missing package $package" }
-            dotnet nuget push $package --api-key '${{ secrets.NUGET_API_KEY }}' --source $source --skip-duplicate
+            dotnet nuget push $package --api-key '${{ steps.login.outputs.NUGET_API_KEY }}' --source $source --skip-duplicate
             if ($LASTEXITCODE -ne 0) { throw "Failed to push $package" }
           }
 
