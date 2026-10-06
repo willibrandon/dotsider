@@ -551,7 +551,7 @@ public class AssemblyToolsTests : McpServerTestBase
         var json = JsonSerializer.Deserialize<JsonElement>(text);
         Assert.AreEqual(JsonValueKind.Array, json.ValueKind);
         Assert.IsGreaterThan(0, json.GetArrayLength());
-        var names = json.EnumerateArray().Select(e => e.GetProperty("fullName").GetString()).ToList();
+        var names = json.EnumerateArray().Select(e => TestAssert.NotNull(e.GetProperty("fullName").GetString())).ToList();
         Assert.Contains("Program", names);
     }
 

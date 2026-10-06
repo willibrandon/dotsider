@@ -207,7 +207,7 @@ public partial class McpCliTests
     private static string FindRepoRoot()
     {
         var dir = AppContext.BaseDirectory;
-        while (dir is not null && !Directory.Exists(Path.Join(dir, ".git")))
+        while (dir is not null && !File.Exists(Path.Join(dir, "Dotsider.slnx")))
             dir = Path.GetDirectoryName(dir);
         return dir ?? throw new InvalidOperationException("Could not find repo root");
     }

@@ -23,7 +23,7 @@ Sample .NET projects used as test fixtures for dotsider's analysis, diff, and tr
 | [ReadyToRunComponentLib](ReadyToRunComponentLib/) | Library (composite ReadyToRun component) | Component metadata fixture used by the composite image and owner-composite resolution tests |
 | [Dotted.Name.App](Dotted.Name.App/) | Console app | Dotted assembly name for cross-platform apphost detection testing |
 | [SelfContainedConsole](SelfContainedConsole/) | Console app (single-file) | Self-contained single-file bundle for bundle reading and resolution testing |
-| [AppLocalRollForward](AppLocalRollForward/) | Library | Reproduces the AppLocal framework-PKT roll-forward scenario: TraceEvent's stale `AssemblyRef` to `Microsoft.Diagnostics.NETCore.Client v0.2.10.10501` paired with a higher app-local deployment (`v0.2.13.11903`) under the same well-known framework PKT |
+| [AppLocalRollForward](AppLocalRollForward/) | Library | Reproduces the AppLocal framework-PKT roll-forward scenario: TraceEvent's stale `AssemblyRef` to `Microsoft.Diagnostics.NETCore.Client` paired with a newer app-local deployment under the same well-known framework PKT |
 | [EmbeddedSourceLib](EmbeddedSourceLib/) | Library | Embedded portable PDB source fixture for source navigation and CLI extraction tests |
 | [NetFxBindingRedirects](NetFxBindingRedirects/) | Console app (.NET Fx) | Runtime oracle for `NetFxBinder`: GAC + framework runtime + binding redirects + `<probing privatePath>` + `<codeBase>` (success and missing) + culture-aware probing |
 | [NetFxBindingRedirects.OldDep](NetFxBindingRedirects.OldDep/) | Library (.NET Fx) | Compiled against Newtonsoft.Json 12.0.1 — drives transitive binding-redirect tests |
