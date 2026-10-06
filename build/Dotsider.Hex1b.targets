@@ -1,0 +1,14 @@
+<Project>
+  <!-- Hex1b's Windows console host includes architecture subdirectories beneath
+       runtimes/<rid>/native. RID-specific publishing flattens those directories, causing
+       the x64 and arm64 OpenConsole.exe files to collide during publish. Retain
+       their paths relative to the native directory, beside conpty.dll. -->
+  <Target Name="PreserveHex1bNativePublishLayout"
+          AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Condition="'%(ResolvedFileToPublish.NuGetPackageId)' == 'Hex1b' and '%(ResolvedFileToPublish.AssetType)' == 'native' and '%(ResolvedFileToPublish.DestinationSubDirectory)' == ''">
+        <RelativePath>$([System.Text.RegularExpressions.Regex]::Replace('%(ResolvedFileToPublish.PathInPackage)', '^runtimes/[^/]+/native/', ''))</RelativePath>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+</Project>

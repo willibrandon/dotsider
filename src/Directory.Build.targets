@@ -23,13 +23,14 @@
     <ItemGroup>
       <_UnusedTraceEventNativeAsset Include="$(PublishDir)Dia2Lib.dll" />
       <_UnusedTraceEventNativeAsset Include="$(PublishDir)TraceReloggerLib.dll" />
-      <_UnusedTraceEventNativeAsset Include="$(PublishDir)x86\**\*" />
-      <_UnusedTraceEventNativeAsset Include="$(PublishDir)amd64\**\*" />
-      <_UnusedTraceEventNativeAsset Include="$(PublishDir)arm64\**\*" />
+      <!-- Architecture directories can also contain other packages' assets, such
+           as Hex1b's OpenConsole.exe. Remove only the unused TraceEvent libraries. -->
+      <_UnusedTraceEventNativeAsset Include="$(PublishDir)x86\KernelTraceControl*.dll;$(PublishDir)x86\msdia*.dll" />
+      <_UnusedTraceEventNativeAsset Include="$(PublishDir)amd64\KernelTraceControl*.dll;$(PublishDir)amd64\msdia*.dll" />
+      <_UnusedTraceEventNativeAsset Include="$(PublishDir)arm64\KernelTraceControl*.dll;$(PublishDir)arm64\msdia*.dll" />
       <_PublishDocumentation Include="$(PublishDir)*.xml" />
     </ItemGroup>
     <Delete Files="@(_UnusedTraceEventNativeAsset);@(_PublishDocumentation)" />
-    <RemoveDir Directories="$(PublishDir)x86;$(PublishDir)amd64;$(PublishDir)arm64" />
   </Target>
 
   <Target Name="RemoveSymbolsFromToolPackage"

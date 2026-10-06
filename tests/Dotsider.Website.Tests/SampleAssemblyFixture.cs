@@ -84,6 +84,10 @@ internal class SampleAssemblyFixture : IAsyncDisposable
 
         using (lockFile)
         {
+            // Publish is additive; stale native files must not satisfy layout assertions.
+            if (Directory.Exists(WebsitePublishedDir))
+                Directory.Delete(WebsitePublishedDir, recursive: true);
+
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
