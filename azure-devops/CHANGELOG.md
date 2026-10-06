@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.26.3
+
+- Use private temporary directories for size-check reports and managed baselines, preserving their permissions when clearing stale baseline files.
+- Update dependencies and fix Windows native publishing in the released Dotsider tools.
+
 ## 0.26.2
 
 - No extension changes; this release corrects the winget publishing workflow.
