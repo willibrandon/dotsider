@@ -2,6 +2,7 @@
 #:property TargetFramework=net10.0
 #:property PackAsTool=false
 #:include ScriptSupport.cs
+#:include NativeAotPayloadValidator.cs
 
 using System.Diagnostics;
 using System.IO.Compression;
@@ -223,19 +224,16 @@ internal static class NativeAotVerificationApp
             ValidateTraceHost(output, name);
             RunChecked(executable, ["--version"], repositoryRoot);
 
-            if (release)
-            {
-                MoveNativeSymbols(
-                    repositoryRoot,
-                    output,
-                    Path.Join(symbolRoot, name),
-                    name,
-                    rid);
-                File.Copy(
-                    Path.Join(repositoryRoot, "LICENSE"),
-                    Path.Join(output, "LICENSE"));
-                ValidateReleasePayload(output, name, executableExtension, rid);
-            }
+            MoveNativeSymbols(
+                repositoryRoot,
+                output,
+                Path.Join(symbolRoot, name),
+                name,
+                rid);
+            File.Copy(
+                Path.Join(repositoryRoot, "LICENSE"),
+                Path.Join(output, "LICENSE"));
+            NativeAotPayloadValidator.Validate(output, name, rid);
 
             RunDotnetChecked(
                 repositoryRoot,
@@ -254,7 +252,7 @@ internal static class NativeAotVerificationApp
 
             string package = Path.Join(packageRoot, $"{packageId}.{rid}.{version}.nupkg");
             RequireFile(package, $"Missing tool package for {packageId}.{rid}.");
-            ValidateToolPackage(package, name, executableExtension, release);
+            ValidateToolPackage(package, name, executableExtension, rid);
             if (!release)
             {
                 InstallAndRunTool(
@@ -354,26 +352,32 @@ internal static class NativeAotVerificationApp
         string package,
         string productName,
         string executableExtension,
-        bool release)
+        string rid)
     {
         using ZipArchive archive = ZipFile.OpenRead(package);
         string[] entryNames = [.. archive.Entries.Select(static entry => entry.FullName)];
-        if (release)
+        string[] forbidden = [.. entryNames.Where(IsForbiddenPackageEntry)];
+        if (forbidden.Length != 0)
         {
-            string[] forbidden = [.. entryNames.Where(IsForbiddenPackageEntry)];
-            if (forbidden.Length != 0)
-            {
-                throw new InvalidOperationException(
-                    $"Tool package {package} contains forbidden files: {string.Join(", ", forbidden)}");
-            }
+            throw new InvalidOperationException(
+                $"Tool package {package} contains forbidden files: {string.Join(", ", forbidden)}");
+        }
 
-            string executableSuffix = "/" + productName + executableExtension;
-            if (!entryNames.Any(name =>
-                    name.EndsWith(executableSuffix, StringComparison.OrdinalIgnoreCase)))
-            {
+        string executableSuffix = "/" + productName + executableExtension;
+        if (!entryNames.Any(name =>
+                name.EndsWith(executableSuffix, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException(
+                $"Tool package {package} does not contain its Native AOT executable.");
+        }
+
+        if (productName.Equals("dotsider", StringComparison.Ordinal))
+        {
+            string[] missing = [.. NativeAotPayloadValidator.RequiredTerminalFiles(rid)
+                .Where(file => !entryNames.Any(name => name.EndsWith("/" + file, StringComparison.OrdinalIgnoreCase)))];
+            if (missing.Length != 0)
                 throw new InvalidOperationException(
-                    $"Tool package {package} does not contain its Native AOT executable.");
-            }
+                    $"Tool package {package} is missing native terminal files: {string.Join(", ", missing)}");
         }
 
         bool containsTraceHost = entryNames.Any(name =>
@@ -459,41 +463,6 @@ internal static class NativeAotVerificationApp
         extension.Equals(".pdb", StringComparison.OrdinalIgnoreCase)
         || extension.Equals(".dbg", StringComparison.OrdinalIgnoreCase)
         || extension.Equals(".dwarf", StringComparison.OrdinalIgnoreCase);
-
-    private static void ValidateReleasePayload(
-        string output,
-        string productName,
-        string executableExtension,
-        string rid)
-    {
-        string traceHostRoot = Path.GetFullPath(Path.Join(output, "tracehost"))
-            + Path.DirectorySeparatorChar;
-        string[] unexpected =
-        [
-            .. Directory.EnumerateFiles(output, "*", SearchOption.AllDirectories)
-                .Where(path =>
-                {
-                    string fullPath = Path.GetFullPath(path);
-                    bool traceHostFile = productName.Equals("dotsider", StringComparison.Ordinal)
-                        && fullPath.StartsWith(traceHostRoot, StringComparison.OrdinalIgnoreCase);
-                    string fileName = Path.GetFileName(path);
-                    bool nativeTerminalLibrary = productName.Equals("dotsider", StringComparison.Ordinal)
-                        && fileName.StartsWith("libhex1binterop.", StringComparison.OrdinalIgnoreCase);
-                    return !fileName.Equals(
-                            productName + executableExtension,
-                            StringComparison.OrdinalIgnoreCase)
-                        && !fileName.Equals("LICENSE", StringComparison.Ordinal)
-                        && !traceHostFile
-                        && !nativeTerminalLibrary;
-                }),
-        ];
-        if (unexpected.Length != 0)
-        {
-            throw new InvalidOperationException(
-                $"Unexpected release files for {productName} on {rid}: "
-                + string.Join(", ", unexpected));
-        }
-    }
 
     private static void ValidateBuildHost(string rid, bool insideMuslContainer)
     {

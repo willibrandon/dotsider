@@ -84,6 +84,7 @@
     <File Path="scripts/Deploy/DeploymentProcessRunner.cs" />
     <File Path="scripts/Deploy/SshContext.cs" />
     <File Path="scripts/Directory.Build.props" />
+    <File Path="scripts/NativeAotPayloadValidator.cs" />
     <File Path="scripts/README.md" />
     <File Path="scripts/Run-Tests.cs" />
     <File Path="scripts/ScriptSupport.cs" />
