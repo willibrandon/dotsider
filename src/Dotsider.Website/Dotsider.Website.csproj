@@ -18,4 +18,6 @@
     <ProjectReference Include="../Dotsider/Dotsider.csproj" />
   </ItemGroup>
 
+  <Import Project="../../build/Dotsider.Hex1b.targets" />
+
 </Project>

@@ -14,7 +14,7 @@
   <ItemGroup>
     <!-- DocFX as a library -->
     <PackageReference Include="Docfx.App" />
-    <!-- TraceEvent 3.2.5 references these assemblies but omits them from its custom nuspec. -->
+    <!-- TraceEvent references these assemblies but omits them from its custom nuspec. -->
     <PackageReference Include="Microsoft.Bcl.HashCode" PrivateAssets="all" />
     <PackageReference Include="System.IO.Hashing" PrivateAssets="all" />
   </ItemGroup>

@@ -72,6 +72,7 @@
     <Error Condition="Exists('$(PublishDir)runtimes\win-x64\native\hex1bpty.exe') or Exists('$(PublishDir)runtimes\win-arm64\native\hex1bpty.exe')" Text="The unused Hex1b PTY host must not be included in dotsider publish output." />
   </Target>
 
+  <Import Project="../../build/Dotsider.Hex1b.targets" />
   <Import Project="../../build/Dotsider.TraceHost.targets" />
 
 </Project>

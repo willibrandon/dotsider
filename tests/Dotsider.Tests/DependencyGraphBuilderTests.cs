@@ -299,9 +299,8 @@ public class DependencyGraphBuilderTests
     /// is a strict roll-forward of a stale AssemblyRef in a transitive dependency. The graph
     /// keys the node on the loaded (deployed) identity and records the original requested
     /// identity on the edge — no IdentityMismatch leaf, no duplicate node. Reproduced with the
-    /// AppLocalRollForward sample where Microsoft.Diagnostics.Tracing.TraceEvent 3.2.2's
-    /// AssemblyRef points at Microsoft.Diagnostics.NETCore.Client v0.2.10.10501 while NuGet
-    /// restored v0.2.13.11903 next to it.
+    /// AppLocalRollForward sample where TraceEvent references an older NETCore.Client
+    /// assembly than the direct package reference deploys next to it.
     /// </summary>
     [TestMethod]
     [Timeout(30_000, CooperativeCancellation = true)]
@@ -326,7 +325,9 @@ public class DependencyGraphBuilderTests
         var edge = graph.Edges.Single(
             e => e.SourceId == traceEventNode.Id && e.TargetId == node.Id);
         Assert.IsNotNull(edge.RequestedIdentity);
-        Assert.AreNotEqual(node.Version, edge.RequestedIdentity!.Version);
+        Assert.IsGreaterThan(Version.Parse(edge.RequestedIdentity!.Version),
+            Version.Parse(TestAssert.NotNull(node.Version)),
+            "The fixture must deploy a newer NETCore.Client than TraceEvent requests.");
         Assert.AreEqual("31bf3856ad364e35", edge.RequestedIdentity.PublicKeyToken);
     }
 
