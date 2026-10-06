@@ -17,7 +17,7 @@ public class PreIlcAnalyzerTests : IDisposable
 
     private string NewTempDir()
     {
-        var dir = Path.Combine(Path.GetTempPath(), $"dotsider-preilc-an-{Guid.NewGuid():N}");
+        var dir = Path.Join(Path.GetTempPath(), $"dotsider-preilc-an-{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
         _tempFiles.Add(dir);
         return dir;
@@ -77,7 +77,7 @@ public class PreIlcAnalyzerTests : IDisposable
         TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
         var dir = NewTempDir();
-        var exe = Path.Combine(dir, "NativeAotConsole.exe");
+        var exe = Path.Join(dir, "NativeAotConsole.exe");
         File.Copy(Samples.NativeAotConsoleExe!, exe);
 
         using var analyzer = new AssemblyAnalyzer(exe);
@@ -111,7 +111,7 @@ public class PreIlcAnalyzerTests : IDisposable
     {
         TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
         var set = analyzer.AttachPreIlcCompanions();
         Assert.IsNotNull(set);
 
@@ -175,7 +175,7 @@ public class PreIlcAnalyzerTests : IDisposable
     {
         TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
-        var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
+        using var analyzer = new AssemblyAnalyzer(Samples.NativeAotConsoleExe!);
         analyzer.AttachPreIlcCompanions();
 
         var build = Task.Run(() =>
@@ -196,25 +196,25 @@ public class PreIlcAnalyzerTests : IDisposable
         TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
         var root = NewTempDir();
-        var exeDir = Path.Combine(root, "Proj", "bin", "Release", "net10.0", "win-x64", "publish");
+        var exeDir = Path.Join(root, "Proj", "bin", "Release", "net10.0", "win-x64", "publish");
         Directory.CreateDirectory(exeDir);
-        var nativeDir = Path.Combine(root, "Proj", "obj", "Release", "net10.0", "win-x64", "native");
+        var nativeDir = Path.Join(root, "Proj", "obj", "Release", "net10.0", "win-x64", "native");
         Directory.CreateDirectory(nativeDir);
 
-        var exe = Path.Combine(exeDir, "NativeAotConsole.exe");
+        var exe = Path.Join(exeDir, "NativeAotConsole.exe");
         File.Copy(Samples.NativeAotConsoleExe!, exe);
 
-        var objMstat = Path.Combine(nativeDir, "NativeAotConsole.mstat");
+        var objMstat = Path.Join(nativeDir, "NativeAotConsole.mstat");
         File.WriteAllBytes(objMstat, [1]);
-        File.WriteAllBytes(Path.Combine(exeDir, "NativeAotConsole.scan.dgml.xml"), [1]);
-        var objCodegen = Path.Combine(nativeDir, "NativeAotConsole.codegen.dgml.xml");
+        File.WriteAllBytes(Path.Join(exeDir, "NativeAotConsole.scan.dgml.xml"), [1]);
+        var objCodegen = Path.Join(nativeDir, "NativeAotConsole.codegen.dgml.xml");
         File.WriteAllBytes(objCodegen, [1]);
 
         using var analyzer = new AssemblyAnalyzer(exe);
         Assert.AreEqual(objMstat, analyzer.MstatPath);
         Assert.AreEqual(objCodegen, analyzer.DgmlPath); // codegen-first across locations
 
-        var siblingMstat = Path.Combine(exeDir, "NativeAotConsole.mstat");
+        var siblingMstat = Path.Join(exeDir, "NativeAotConsole.mstat");
         File.WriteAllBytes(siblingMstat, [1]);
         using var analyzer2 = new AssemblyAnalyzer(exe);
         Assert.AreEqual(siblingMstat, analyzer2.MstatPath);
@@ -228,9 +228,9 @@ public class PreIlcAnalyzerTests : IDisposable
         TestSkip.When(Samples.NativeAotConsoleExe is null, "NativeAOT sample was not built");
 
         var dir = NewTempDir();
-        var lib = Path.Combine(dir, "SomeAotLib.dll");
+        var lib = Path.Join(dir, "SomeAotLib.dll");
         File.Copy(Samples.NativeAotConsoleExe!, lib); // AOT by content, library by name
-        var mstat = Path.Combine(dir, "SomeAotLib.mstat");
+        var mstat = Path.Join(dir, "SomeAotLib.mstat");
         File.WriteAllBytes(mstat, [1]);
 
         using var analyzer = new AssemblyAnalyzer(lib);
@@ -298,7 +298,7 @@ public class PreIlcAnalyzerTests : IDisposable
                 if (File.Exists(path)) File.Delete(path);
                 else if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
             }
-            catch { /* best effort */ }
+            catch (Exception caughtException) when (caughtException is System.IO.IOException or UnauthorizedAccessException) { /* best effort */ }
         }
     }
 }

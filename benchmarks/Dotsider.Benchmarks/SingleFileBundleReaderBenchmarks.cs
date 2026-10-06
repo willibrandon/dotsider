@@ -32,7 +32,7 @@ public class SingleFileBundleReaderBenchmarks
         if (!File.Exists(_bundlePath))
             throw new FileNotFoundException($"Published bundle not found: {_bundlePath}");
 
-        _coreLibPath = Path.Combine(RuntimeEnvironment.GetRuntimeDirectory(), "System.Private.CoreLib.dll");
+        _coreLibPath = Path.Join(RuntimeEnvironment.GetRuntimeDirectory(), "System.Private.CoreLib.dll");
 
         if (!File.Exists(_coreLibPath))
             throw new FileNotFoundException($"CoreLib not found: {_coreLibPath}");

@@ -57,13 +57,15 @@ internal sealed class DemoWebSocketSessionHandler
 
             await _runSession(webSocket, sessionCts.Token);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException handledException)
         {
+            System.Diagnostics.Trace.TraceInformation("HandleAsync: {0}", handledException);
         }
-        catch (WebSocketException)
+        catch (WebSocketException handledException)
         {
+            System.Diagnostics.Trace.TraceInformation("HandleAsync: {0}", handledException);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is IOException or InvalidOperationException or ArgumentException)
         {
             Log.SessionError(_logger, exception);
         }

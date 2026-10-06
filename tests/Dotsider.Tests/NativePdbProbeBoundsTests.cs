@@ -169,7 +169,7 @@ public sealed class NativePdbProbeBoundsTests
 
     private static string WriteTemporaryPdb(byte[] image)
     {
-        var path = Path.Combine(Path.GetTempPath(), $"dotsider-pdb-probe-{Guid.NewGuid():N}.pdb");
+        var path = Path.Join(Path.GetTempPath(), $"dotsider-pdb-probe-{Guid.NewGuid():N}.pdb");
         File.WriteAllBytes(path, image);
         return path;
     }

@@ -63,7 +63,7 @@ internal sealed class ProvisionCommand(
         }
 
         string sshDirectory = $"/home/{DeployPaths.DeployUser}/.ssh";
-        string authorizedKeys = Path.Combine(sshDirectory, "authorized_keys");
+        string authorizedKeys = Path.Join(sshDirectory, "authorized_keys");
         EnsureDirectory(sshDirectory);
         File.SetUnixFileMode(sshDirectory, OwnerDirectoryMode);
         if (File.Exists(authorizedKeys))
@@ -126,14 +126,14 @@ internal sealed class ProvisionCommand(
         const string listUrl = "https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt";
         const string keyDestination = "/usr/share/keyrings/caddy-stable-archive-keyring.gpg";
         const string listDestination = "/etc/apt/sources.list.d/caddy-stable.list";
-        string temporaryDirectory = Path.Combine(Path.GetTempPath(), "dotsider-caddy-" + Guid.NewGuid().ToString("N"));
+        string temporaryDirectory = Path.Join(Path.GetTempPath(), "dotsider-caddy-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(temporaryDirectory);
         File.SetUnixFileMode(temporaryDirectory, OwnerDirectoryMode);
         try
         {
-            string keySource = Path.Combine(temporaryDirectory, "caddy.gpg.key");
-            string keyCandidate = Path.Combine(temporaryDirectory, "caddy.gpg");
-            string listCandidate = Path.Combine(temporaryDirectory, "caddy.list");
+            string keySource = Path.Join(temporaryDirectory, "caddy.gpg.key");
+            string keyCandidate = Path.Join(temporaryDirectory, "caddy.gpg");
+            string listCandidate = Path.Join(temporaryDirectory, "caddy.list");
             await DownloadAsync(keyUrl, keySource, cancellationToken).ConfigureAwait(false);
             await DownloadAsync(listUrl, listCandidate, cancellationToken).ConfigureAwait(false);
             await RequireSuccessAsync(

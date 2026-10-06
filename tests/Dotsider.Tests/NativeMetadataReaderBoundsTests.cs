@@ -30,7 +30,7 @@ public sealed class NativeMetadataReaderBoundsTests
         var childName = builder.AddString("Child");
         var methodName = builder.AddString("Run");
         var method = builder.AddMethod(methodName);
-        var (Offset, NestedTypeSlots, MethodSlots) = builder.AddType(innerName);
+        var (Offset, _, _) = builder.AddType(innerName);
         var outer = builder.AddType(outerName, nestedTypeCount: 2, methodCount: 2);
         PatchAll(builder, outer.NestedTypeSlots, Offset);
         PatchAll(builder, outer.MethodSlots, method);
@@ -122,7 +122,7 @@ public sealed class NativeMetadataReaderBoundsTests
         var bName = builder.AddString("B");
         var cName = builder.AddString("C");
         var otherNamespaceName = builder.AddString("Other");
-        var (Offset, NestedTypeSlots, MethodSlots) = builder.AddType(aName, nestedTypeCount: 2);
+        var (Offset, NestedTypeSlots, _) = builder.AddType(aName, nestedTypeCount: 2);
         var b = builder.AddType(bName, nestedTypeCount: 1);
         builder.PatchHandle(NestedTypeSlots[0], Offset);
         builder.PatchHandle(NestedTypeSlots[1], b.Offset);
@@ -188,7 +188,7 @@ public sealed class NativeMetadataReaderBoundsTests
         var builder = new SyntheticNativeMetadataBuilder();
         var linkName = builder.AddString("Link");
         var targetName = builder.AddString("Target");
-        var (Offset, NestedTypeSlots, MethodSlots) = builder.AddType(targetName);
+        var (Offset, _, _) = builder.AddType(targetName);
         var deepRoot = Offset;
         for (var i = 0; i < DocumentedMaxDepth; i++)
         {
@@ -267,7 +267,7 @@ public sealed class NativeMetadataReaderBoundsTests
             methods[i] = builder.AddMethod(sharedName);
         }
 
-        var (Offset, NestedTypeSlots, MethodSlots) = builder.AddType(sharedName, methodCount: methods.Length);
+        var (Offset, _, MethodSlots) = builder.AddType(sharedName, methodCount: methods.Length);
         for (var i = 0; i < methods.Length; i++)
         {
             builder.PatchHandle(MethodSlots[i], methods[i]);
@@ -307,7 +307,7 @@ public sealed class NativeMetadataReaderBoundsTests
 
         var overName = builder.AddString("x");
         typeOffsets[^1] = builder.AddType(overName).Offset;
-        var (Offset, TypeSlots, ForwarderSlots, ChildNamespaceSlots) = builder.AddNamespace(0, typeCount: typeOffsets.Length);
+        var (Offset, TypeSlots, _, _) = builder.AddNamespace(0, typeCount: typeOffsets.Length);
         for (var i = 0; i < typeOffsets.Length; i++)
         {
             builder.PatchHandle(TypeSlots[i], typeOffsets[i]);
@@ -491,7 +491,7 @@ public sealed class NativeMetadataReaderBoundsTests
         builder.SetScope(1, scope);
         var replacement = builder.Build();
         Assert.IsGreaterThanOrEqualTo((long)replacement.Length, metadata.Size);
-        replacement.CopyTo(image.AsSpan(metadata.FileOffset.Value));
+        replacement.CopyTo(image.AsSpan(TestAssert.HasValue(metadata.FileOffset)));
 
         using var patched = new AssemblyAnalyzer(image, path);
         var recovered = Assert.ContainsSingle(patched.RecoveredTypes);

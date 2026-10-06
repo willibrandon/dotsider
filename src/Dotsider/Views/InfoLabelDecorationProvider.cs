@@ -52,39 +52,9 @@ public sealed class InfoLabelDecorationProvider : ITextDecorationProvider
                 if (colonIdx < 0)
                     break;
 
-                // Walk backwards from the colon to find the label start.
-                var labelStart = colonIdx - 1;
-                while (labelStart >= searchStart
-                    && (char.IsLetterOrDigit(text[labelStart]) || text[labelStart] is ' ' or '-'))
-                {
-                    // Stop at double-space (gap between previous value and this label)
-                    if (text[labelStart] == ' ' && labelStart > 0 && text[labelStart - 1] == ' ')
-                    {
-                        labelStart++;
-                        break;
-                    }
-                    labelStart--;
-                }
-                if (labelStart < 0) labelStart = 0;
+                var labelStart = FindLabelStart(text, searchStart, colonIdx);
 
-                // Skip leading spaces within the label
-                while (labelStart < colonIdx && text[labelStart] == ' ')
-                    labelStart++;
-
-                // Validate: at least one letter before the colon (avoids matching
-                // version numbers like "1.0.0.0") and the colon must be close to
-                // the label start to avoid false positives on content colons.
-                var hasLetter = false;
-                for (var i = labelStart; i < colonIdx; i++)
-                {
-                    if (char.IsLetter(text[i]))
-                    {
-                        hasLetter = true;
-                        break;
-                    }
-                }
-
-                if (hasLetter && labelStart < colonIdx && (colonIdx - labelStart) <= 25)
+                if (IsLabel(text.AsSpan(labelStart, colonIdx - labelStart)))
                 {
                     // First label on the line includes leading whitespace (column 1)
                     var spanCol = isFirstOnLine ? 1 : labelStart + 1;
@@ -96,33 +66,54 @@ public sealed class InfoLabelDecorationProvider : ITextDecorationProvider
                     isFirstOnLine = false;
                 }
 
-                // Skip past the value to the next multi-label separator.
-                // First skip the padding between the label's colon and its value,
-                // then look for 4+ consecutive spaces which indicate a real
-                // value→label boundary ("Gen 0: 4    Gen 1: 4").
-                var next = colonIdx + 1;
-                // Skip immediate padding after colon
-                while (next < text.Length && text[next] == ' ')
-                    next++;
-                // Skip through value content until a 4+ space gap.
-                // If no gap is found, stop scanning this line entirely.
-                var foundSeparator = false;
-                while (next < text.Length - 3)
-                {
-                    if (text[next] == ' ' && text[next + 1] == ' '
-                        && text[next + 2] == ' ' && text[next + 3] == ' ')
-                    {
-                        while (next < text.Length && text[next] == ' ')
-                            next++;
-                        foundSeparator = true;
-                        break;
-                    }
-                    next++;
-                }
-                searchStart = foundSeparator ? next : text.Length;
+                searchStart = FindNextLabel(text, colonIdx);
             }
         }
 
         return spans;
     }
+
+    private static int FindLabelStart(string text, int searchStart, int colonIdx)
+    {
+        // Walk backwards from the colon to find the label start.
+        var labelStart = colonIdx - 1;
+        while (labelStart >= searchStart
+            && (char.IsLetterOrDigit(text[labelStart]) || text[labelStart] is ' ' or '-'))
+        {
+            // Stop at double-space (gap between previous value and this label)
+            if (text[labelStart] == ' ' && labelStart > 0 && text[labelStart - 1] == ' ')
+            {
+                labelStart++;
+                break;
+            }
+            labelStart--;
+        }
+        if (labelStart < 0) labelStart = 0;
+
+        // Skip leading spaces within the label
+        while (labelStart < colonIdx && text[labelStart] == ' ')
+            labelStart++;
+
+        return labelStart;
+    }
+
+    private static bool IsLabel(ReadOnlySpan<char> label)
+    {
+        if (label.Length is 0 or > 25) return false;
+        foreach (var character in label)
+            if (char.IsLetter(character)) return true;
+        return false;
+    }
+
+    private static int FindNextLabel(string text, int colonIdx)
+    {
+        // Skip colon padding before looking for the four-space gap after a value.
+        var next = colonIdx + 1;
+        while (next < text.Length && text[next] == ' ') next++;
+        next = text.IndexOf("    ", next, StringComparison.Ordinal);
+        if (next < 0) return text.Length;
+        while (next < text.Length && text[next] == ' ') next++;
+        return next;
+    }
+
 }

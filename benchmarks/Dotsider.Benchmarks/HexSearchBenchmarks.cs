@@ -26,8 +26,8 @@ public class HexSearchBenchmarks
     public void Setup()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        _coreLibBytes = File.ReadAllBytes(Path.Combine(runtimeDir, "System.Private.CoreLib.dll"));
-        _xmlBytes = File.ReadAllBytes(Path.Combine(runtimeDir, "System.Private.Xml.dll"));
+        _coreLibBytes = File.ReadAllBytes(Path.Join(runtimeDir, "System.Private.CoreLib.dll"));
+        _xmlBytes = File.ReadAllBytes(Path.Join(runtimeDir, "System.Private.Xml.dll"));
 
         // Short pattern: "MZ" header — guaranteed to exist at offset 0
         _shortPattern = "MZ"u8.ToArray();

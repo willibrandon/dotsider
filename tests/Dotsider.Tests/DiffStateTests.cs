@@ -90,7 +90,7 @@ public class DiffStateTests : IDisposable
     public void Dispose_CleansUp()
     {
         var app = CreateApp();
-        var state = new DiffState(app, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
+        using var state = new DiffState(app, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
         state.Dispose();
         state.Dispose(); // idempotent — should not throw
     }

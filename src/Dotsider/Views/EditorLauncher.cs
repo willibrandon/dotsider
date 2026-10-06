@@ -145,7 +145,7 @@ internal static class EditorLauncher
         }
 
         var startInfo = new ProcessStartInfo(
-            Path.Combine(Environment.SystemDirectory, "cmd.exe"))
+            Path.Join(Environment.SystemDirectory, "cmd.exe"))
         {
             UseShellExecute = false,
             WorkingDirectory = Path.GetDirectoryName(resolvedScript) ?? ""

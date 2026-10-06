@@ -115,7 +115,7 @@ internal static class ContainedPathResolver
             var rootWithSeparator = Path.EndsInDirectorySeparator(canonicalRoot)
                 ? canonicalRoot
                 : string.Concat(canonicalRoot, Path.DirectorySeparatorChar);
-            var candidate = Path.GetFullPath(Path.Combine(
+            var candidate = Path.GetFullPath(Path.Join(
                 rootWithSeparator,
                 NormalizeSeparators(relativePath)));
 
@@ -256,7 +256,7 @@ internal static class ContainedPathResolver
 
         for (var index = 0; index < segments.Length; index++)
         {
-            var entryPath = Path.Combine(currentPath, segments[index]);
+            var entryPath = Path.Join(currentPath, segments[index]);
             var entryIsDirectory = index < segments.Length - 1 || isDirectory;
             FileSystemInfo entry = entryIsDirectory
                 ? new DirectoryInfo(entryPath)

@@ -566,7 +566,7 @@ public sealed class WebcilImageReaderTests
         Assert.IsNotNull(reader);
         WebcilDebugEntry? embeddedEntry = reader.EmbeddedPortablePdbEntry();
         Assert.IsTrue(embeddedEntry.HasValue);
-        WebcilDebugEntry entry = embeddedEntry.Value;
+        WebcilDebugEntry entry = TestAssert.HasValue(embeddedEntry);
 
         using MetadataReaderProvider provider = reader.ReadEmbeddedPortablePdb(entry);
 
@@ -598,7 +598,7 @@ public sealed class WebcilImageReaderTests
         Assert.IsNotNull(reader);
         WebcilDebugEntry? embeddedEntry = reader.EmbeddedPortablePdbEntry();
         Assert.IsTrue(embeddedEntry.HasValue);
-        WebcilDebugEntry entry = embeddedEntry.Value;
+        WebcilDebugEntry entry = TestAssert.HasValue(embeddedEntry);
 
         Assert.ThrowsExactly<BadImageFormatException>(() =>
             reader.ReadEmbeddedPortablePdb(entry));
@@ -628,7 +628,7 @@ public sealed class WebcilImageReaderTests
         Assert.IsNotNull(reader);
         WebcilDebugEntry? embeddedEntry = reader.EmbeddedPortablePdbEntry();
         Assert.IsTrue(embeddedEntry.HasValue);
-        WebcilDebugEntry entry = embeddedEntry.Value;
+        WebcilDebugEntry entry = TestAssert.HasValue(embeddedEntry);
 
         Assert.ThrowsExactly<BadImageFormatException>(() =>
             reader.ReadEmbeddedPortablePdb(entry));
@@ -680,7 +680,7 @@ public sealed class WebcilImageReaderTests
         Assert.IsTrue(embeddedEntry.HasValue);
 
         Assert.ThrowsExactly<BadImageFormatException>(() =>
-            reader.ReadEmbeddedPortablePdb(embeddedEntry.Value));
+            reader.ReadEmbeddedPortablePdb(TestAssert.HasValue(embeddedEntry)));
         DebugDirectoryInfo publicEntry = Assert.ContainsSingle(reader.ReadDebugDirectory());
         Assert.Contains("unreadable:", publicEntry.Payload);
         Assert.Contains("version", publicEntry.Payload);
@@ -712,7 +712,7 @@ public sealed class WebcilImageReaderTests
         Assert.IsTrue(embeddedEntry.HasValue);
 
         Assert.ThrowsExactly<BadImageFormatException>(() =>
-            reader.ReadEmbeddedPortablePdb(embeddedEntry.Value));
+            reader.ReadEmbeddedPortablePdb(TestAssert.HasValue(embeddedEntry)));
         using AssemblyAnalyzer analyzer = new(image.Bytes, "malformed-pdb.webcil");
         Assert.IsTrue(analyzer.HasMetadata);
         Assert.AreEqual(PdbProvenanceKind.InvalidEmbeddedPdb, analyzer.PdbProvenance.Kind);
@@ -1036,8 +1036,8 @@ public sealed class WebcilImageReaderTests
         (string Text, IReadOnlyList<IlInstruction> Instructions, int HeaderLineCount)? disassembly =
             new IlDisassembler(analyzer).DisassembleWithText(method);
         Assert.IsNotNull(disassembly);
-        Assert.Contains("ldc.i4.s 42", disassembly.Value.Text);
-        Assert.Contains("ret", disassembly.Value.Text);
+        Assert.Contains("ldc.i4.s 42", TestAssert.HasValue(disassembly).Text);
+        Assert.Contains("ret", TestAssert.HasValue(disassembly).Text);
     }
 
     /// <summary>
@@ -1086,7 +1086,7 @@ public sealed class WebcilImageReaderTests
         TestSkip.Unless(
             OperatingSystem.IsWindows(),
             "Exclusive file-handle release is observable through deletion only on Windows.");
-        string path = Path.Combine(Path.GetTempPath(), $"dotsider-webcil-{Guid.NewGuid():N}.wasm");
+        string path = Path.Join(Path.GetTempPath(), $"dotsider-webcil-{Guid.NewGuid():N}.wasm");
         try
         {
             SyntheticWebcilImage image = SyntheticWebcilBuilder.Create(wrapped: true);

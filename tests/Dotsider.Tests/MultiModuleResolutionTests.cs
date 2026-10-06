@@ -22,7 +22,7 @@ public sealed class MultiModuleResolutionTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Resolve_CompilerBuiltModule_PushesCompleteAnalyzer()
     {
-        var projectDirectory = Path.Combine(
+        var projectDirectory = Path.Join(
             TestHelpers.GetRepoRoot(),
             "samples",
             "MultiModuleManifest");
@@ -30,8 +30,8 @@ public sealed class MultiModuleResolutionTests
             projectDirectory,
             TestProcessEnvironment.CurrentBuildConfiguration,
             "net10.0");
-        var manifestPath = Path.Combine(outputDirectory, "MultiModuleManifest.dll");
-        var modulePath = Path.Combine(outputDirectory, "MultiModulePart.netmodule");
+        var manifestPath = Path.Join(outputDirectory, "MultiModuleManifest.dll");
+        var modulePath = Path.Join(outputDirectory, "MultiModulePart.netmodule");
 
         Assert.IsTrue(File.Exists(manifestPath), $"Missing compiler-built manifest: {manifestPath}");
         Assert.IsTrue(File.Exists(modulePath), $"Missing compiler-built module: {modulePath}");

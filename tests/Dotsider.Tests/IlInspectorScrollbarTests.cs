@@ -482,7 +482,7 @@ public class IlInspectorScrollbarTests : IDisposable
         await SetupIlTabAsync(terminal, ExpandAllTypes, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
-        var sp = await WaitForPanelAsync(auto, app);
+        await WaitForPanelAsync(auto, app);
 
         var rows = Views.IlInspectorView.BuildTreeRows(_state!);
         await auto.KeyAsync(Hex1bKey.End, ct: ct);
@@ -649,7 +649,7 @@ public class IlInspectorScrollbarTests : IDisposable
 
         // Find a thumb cell, then click below it on the track.
         var sbCol = sp.Bounds.X + sp.Bounds.Width - 1;
-        var thumbY = await WaitForThumbAsync(auto, terminal, sp);
+        await WaitForThumbAsync(auto, terminal, sp);
 
         var initialOffset = TreeOffset;
         var initialKey = _state!.IlFocusedTreeKey as string;
@@ -888,7 +888,7 @@ public class IlInspectorScrollbarTests : IDisposable
         await SwitchToIlAsync(terminal, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
-        var sp = await WaitForPanelAsync(auto, app);
+        await WaitForPanelAsync(auto, app);
 
         // Establish a baseline selection so we can detect drift.
         var rows0 = Views.IlInspectorView.BuildTreeRows(_state!);
@@ -1350,7 +1350,7 @@ public class IlInspectorScrollbarTests : IDisposable
         await SwitchToIlAsync(terminal, ct);
 
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
-        var sp = await WaitForPanelAsync(auto, app);
+        await WaitForPanelAsync(auto, app);
 
         // Force the null-key path: clear the key, redraw.
         _state!.IlFocusedTreeKey = null;

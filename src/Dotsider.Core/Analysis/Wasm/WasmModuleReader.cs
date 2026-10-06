@@ -649,7 +649,7 @@ internal static class WasmModuleReader
         var exportNames = exports
             .Where(e => e.Kind == WasmExternalKind.Function)
             .GroupBy(e => e.Index)
-            .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)[.. g.Select(e => e.Name).Order(StringComparer.Ordinal)]);
+            .ToDictionary(g => g.Key, g => g.Select(e => e.Name).Order(StringComparer.Ordinal).ToArray());
 
         var functions = new List<WasmFunctionInfo>(functionImports.Count + bodies.Count);
         for (var i = 0; i < functionImports.Count; i++)
@@ -709,7 +709,7 @@ internal static class WasmModuleReader
         int index,
         IReadOnlyDictionary<int, string> symbolMap,
         IReadOnlyDictionary<int, string> nameSection,
-        Dictionary<int, IReadOnlyList<string>> exportNames,
+        Dictionary<int, string[]> exportNames,
         string fallback,
         string fallbackSource)
     {
@@ -717,7 +717,7 @@ internal static class WasmModuleReader
             return (symbol, "symbol-map");
         if (nameSection.TryGetValue(index, out var name) && !string.IsNullOrWhiteSpace(name))
             return (name, "name-section");
-        if (exportNames.TryGetValue(index, out var exports) && exports.Count > 0)
+        if (exportNames.TryGetValue(index, out var exports) && exports.Length > 0)
             return (exports[0], "export");
         return (fallback, fallbackSource);
     }
@@ -739,9 +739,9 @@ internal static class WasmModuleReader
         var stem = Path.GetFileNameWithoutExtension(filePath);
         var candidates = new[]
         {
-            Path.Combine(dir, stem + ".js.symbols"),
+            Path.Join(dir, stem + ".js.symbols"),
             filePath + ".symbols",
-            Path.Combine(dir, stem + ".symbols"),
+            Path.Join(dir, stem + ".symbols"),
         };
 
         var path = candidates.FirstOrDefault(File.Exists);

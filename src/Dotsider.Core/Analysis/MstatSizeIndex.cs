@@ -119,9 +119,8 @@ public sealed class MstatSizeIndex
         }
 
         var excludedBlobs = policy.ExcludedBlobNames();
-        foreach (var b in data.Blobs)
+        foreach (var b in data.Blobs.Where(b => !(excludedBlobs.Contains(b.Name))))
         {
-            if (excludedBlobs.Contains(b.Name)) continue;
             Add($"B|{b.Name}",
                 MstatSectionKind.Blob, "", "", "", b.Name, b.Name,
                 $"Blobs/{b.Name}",

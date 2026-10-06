@@ -27,9 +27,9 @@ internal sealed class DockerDeployFixture : IDisposable
     internal DockerDeployFixture(string repositoryRoot)
     {
         _repositoryRoot = repositoryRoot;
-        _dockerConfig = Path.Combine(Path.GetTempPath(), "dotsider-docker-config-" + Guid.NewGuid().ToString("N"));
+        _dockerConfig = Path.Join(Path.GetTempPath(), "dotsider-docker-config-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_dockerConfig);
-        File.WriteAllText(Path.Combine(_dockerConfig, "config.json"), "{}\n", new System.Text.UTF8Encoding(false));
+        File.WriteAllText(Path.Join(_dockerConfig, "config.json"), "{}\n", new System.Text.UTF8Encoding(false));
     }
 
     /// <summary>
@@ -44,7 +44,7 @@ internal sealed class DockerDeployFixture : IDisposable
             ["version", "--format", "{{.Server.Arch}}"]).StandardOutput;
         (string dockerPlatform, string runtimeIdentifier) = ResolveDeploymentTarget(
             dockerArchitecture);
-        string artifacts = Path.Combine(_repositoryRoot, "artifacts", "deploy-tests");
+        string artifacts = Path.Join(_repositoryRoot, "artifacts", "deploy-tests");
         if (Directory.Exists(artifacts))
         {
             Directory.Delete(artifacts, recursive: true);
@@ -62,7 +62,7 @@ internal sealed class DockerDeployFixture : IDisposable
                 runtimeIdentifier,
                 "--self-contained",
                 "--artifacts-path",
-                Path.Combine(artifacts, "build", "deploy-host"),
+                Path.Join(artifacts, "build", "deploy-host"),
                 "-o",
                 artifacts,
             ]);
@@ -78,9 +78,9 @@ internal sealed class DockerDeployFixture : IDisposable
                 "--self-contained",
                 "-p:PublishSingleFile=true",
                 "--artifacts-path",
-                Path.Combine(artifacts, "build", "website"),
+                Path.Join(artifacts, "build", "website"),
                 "-o",
-                Path.Combine(artifacts, "website"),
+                Path.Join(artifacts, "website"),
             ]);
         RunRequired(
             "dotnet",
@@ -92,9 +92,9 @@ internal sealed class DockerDeployFixture : IDisposable
                 "-r",
                 runtimeIdentifier,
                 "--artifacts-path",
-                Path.Combine(artifacts, "build", "sample"),
+                Path.Join(artifacts, "build", "sample"),
                 "-o",
-                Path.Combine(artifacts, "sample"),
+                Path.Join(artifacts, "sample"),
             ]);
         RunRequired(
             "docker",

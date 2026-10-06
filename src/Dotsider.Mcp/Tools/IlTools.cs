@@ -176,7 +176,7 @@ public sealed partial class IlTools(DotsiderSessionManager sessionManager, ILogg
                         results.Add(new IlSearchResultPayload(
                             $"{method.DeclaringType}.{method.Name}", matches));
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException)
                 {
                     LogSkipMethod(logger, ex, method.DeclaringType, method.Name);
                 }

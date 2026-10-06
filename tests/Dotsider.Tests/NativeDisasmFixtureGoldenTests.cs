@@ -22,7 +22,7 @@ public sealed class NativeDisasmFixtureGoldenTests
     public void FixtureGoldens_DecodeExpectedInstructions()
     {
         string root = FindRepositoryRoot();
-        string fixtureRoot = Path.Combine(root, "tests", "Dotsider.Tests", "Fixtures", "Disasm");
+        string fixtureRoot = Path.Join(root, "tests", "Dotsider.Tests", "Fixtures", "Disasm");
         string[] fixtures = Directory.GetFiles(fixtureRoot, "*.json", SearchOption.AllDirectories);
 
         Assert.IsNotEmpty(fixtures);
@@ -82,7 +82,7 @@ public sealed class NativeDisasmFixtureGoldenTests
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Dotsider.slnx")))
+            if (File.Exists(Path.Join(directory.FullName, "Dotsider.slnx")))
                 return directory.FullName;
 
             directory = directory.Parent;

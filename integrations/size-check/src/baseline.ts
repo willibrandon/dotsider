@@ -118,9 +118,11 @@ export async function stageBaseline(
   source: BaselineSource,
   directory: string,
 ): Promise<string> {
-  await fs.rm(directory, { recursive: true, force: true });
+  // Keep the private staging root intact; removing it would reopen a symlink race.
+  await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const filesDirectory = path.join(directory, "files");
-  await fs.mkdir(filesDirectory, { recursive: true });
+  await fs.rm(filesDirectory, { recursive: true, force: true });
+  await fs.mkdir(filesDirectory, { mode: 0o700 });
 
   const artifacts = report.targetArtifacts;
   const candidates: readonly [BaselineManifestFile["role"], string | null | undefined][] = [

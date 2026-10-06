@@ -225,7 +225,7 @@ internal static class TestRunApp
             timeout,
             CreateDotnetTestEnvironment());
 
-        string logPath = Path.Combine(logDirectory, $"dotnet-test-{attempt:0000}.log");
+        string logPath = Path.Join(logDirectory, $"dotnet-test-{attempt:0000}.log");
         ScriptSupport.WriteTextFile(
             logPath,
             string.Join(
@@ -314,7 +314,7 @@ internal static class TestRunApp
 
         string candidate = Path.IsPathFullyQualified(value)
             ? value
-            : Path.Combine(workingDirectory, value);
+            : Path.Join(workingDirectory, value);
         if (File.Exists(candidate) || Directory.Exists(candidate))
         {
             return Path.GetFullPath(candidate);
@@ -340,7 +340,7 @@ internal static class TestRunApp
 
         string resolved = Path.IsPathFullyQualified(value)
             ? value
-            : Path.Combine(workingDirectory, value);
+            : Path.Join(workingDirectory, value);
         Directory.CreateDirectory(resolved);
         return Path.GetFullPath(resolved);
     }

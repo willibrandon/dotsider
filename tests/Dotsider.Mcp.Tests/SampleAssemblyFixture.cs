@@ -165,26 +165,26 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             "EmbeddedSourceLib.dll");
         NativeLibDll = SamplePath("NativeLib", config, tfm, "NativeLib.dll");
         MinimalApiDll = SamplePath("MinimalApi", config, tfm, "MinimalApi.dll");
-        RichLibraryNupkg = Path.Combine(_repoRoot, "samples", "RichLibrary",
+        RichLibraryNupkg = Path.Join(_repoRoot, "samples", "RichLibrary",
             "bin", config, "RichLibrary.2.5.1.nupkg");
 
         var rid = RuntimeInformation.RuntimeIdentifier;
-        SelfContainedConsoleExe = Path.Combine(_repoRoot, "samples", "SelfContainedConsole",
+        SelfContainedConsoleExe = Path.Join(_repoRoot, "samples", "SelfContainedConsole",
             "bin", releaseConfig, tfm, rid, "publish", $"SelfContainedConsole{apphostExt}");
 
-        NativeAotConsoleExe = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
+        NativeAotConsoleExe = Path.Join(_repoRoot, "samples", "NativeAotConsole",
             "bin", releaseConfig, tfm, rid, "publish", $"NativeAotConsole{apphostExt}");
 
-        var r2rConsoleDll = Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
+        var r2rConsoleDll = Path.Join(_repoRoot, "samples", "ReadyToRunConsole",
             "bin", releaseConfig, tfm, rid, "publish", "ReadyToRunConsole.dll");
         ReadyToRunConsoleDll = File.Exists(r2rConsoleDll) ? r2rConsoleDll : null;
-        var wasmNative = Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
+        var wasmNative = Path.Join(_repoRoot, "samples", "ReadyToRunConsole",
             "bin", releaseConfig, tfm, "browser-wasm", "publish", "dotnet.native.wasm");
         ReadyToRunConsoleWasmNativeWasm = File.Exists(wasmNative) ? wasmNative : null;
-        var wasmConsoleNative = Path.Combine(_repoRoot, "samples", "WasmConsole",
+        var wasmConsoleNative = Path.Join(_repoRoot, "samples", "WasmConsole",
             "bin", releaseConfig, tfm, "browser-wasm", "publish", "dotnet.native.wasm");
         WasmConsoleNativeWasm = File.Exists(wasmConsoleNative) ? wasmConsoleNative : null;
-        var wasmConsoleWebcil = Path.Combine(_repoRoot, "samples", "WasmConsole",
+        var wasmConsoleWebcil = Path.Join(_repoRoot, "samples", "WasmConsole",
             "bin", releaseConfig, tfm, "browser-wasm", "AppBundle", "_framework", "WasmConsole.wasm");
         WasmConsoleWebcilWasm = File.Exists(wasmConsoleWebcil) ? wasmConsoleWebcil : null;
 
@@ -204,30 +204,30 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         if (NativeAotConsoleExe is not null)
         {
             var aotPublishDir = Path.GetDirectoryName(NativeAotConsoleExe)!;
-            var mstat = Path.Combine(aotPublishDir, "NativeAotConsole.mstat");
+            var mstat = Path.Join(aotPublishDir, "NativeAotConsole.mstat");
             NativeAotConsoleMstat = File.Exists(mstat) ? mstat : null;
-            var codegenDgml = Path.Combine(aotPublishDir, "NativeAotConsole.codegen.dgml.xml");
-            var scanDgml = Path.Combine(aotPublishDir, "NativeAotConsole.scan.dgml.xml");
+            var codegenDgml = Path.Join(aotPublishDir, "NativeAotConsole.codegen.dgml.xml");
+            var scanDgml = Path.Join(aotPublishDir, "NativeAotConsole.scan.dgml.xml");
             NativeAotConsoleDgml = File.Exists(codegenDgml) ? codegenDgml
                 : File.Exists(scanDgml) ? scanDgml
                 : null;
 
-            var aotObjDir = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
+            var aotObjDir = Path.Join(_repoRoot, "samples", "NativeAotConsole",
                 "obj", releaseConfig, tfm, rid);
-            var managedDll = Path.Combine(aotObjDir, "NativeAotConsole.dll");
+            var managedDll = Path.Join(aotObjDir, "NativeAotConsole.dll");
             NativeAotConsoleManagedDll = File.Exists(managedDll) ? managedDll : null;
         }
 
         // V2 of the AOT sample: same AssemblyName, so the publish output is also named
         // NativeAotConsole — the project folder is what tells the two builds apart.
-        var aotV2PublishDir = Path.Combine(_repoRoot, "samples", "NativeAotConsoleV2",
+        var aotV2PublishDir = Path.Join(_repoRoot, "samples", "NativeAotConsoleV2",
             "bin", releaseConfig, tfm, rid, "publish");
-        var v2Exe = Path.Combine(aotV2PublishDir, $"NativeAotConsole{apphostExt}");
+        var v2Exe = Path.Join(aotV2PublishDir, $"NativeAotConsole{apphostExt}");
         NativeAotConsoleV2Exe = File.Exists(v2Exe) ? v2Exe : null;
-        var v2Mstat = Path.Combine(aotV2PublishDir, "NativeAotConsole.mstat");
+        var v2Mstat = Path.Join(aotV2PublishDir, "NativeAotConsole.mstat");
         NativeAotConsoleV2Mstat = File.Exists(v2Mstat) ? v2Mstat : null;
-        var v2CodegenDgml = Path.Combine(aotV2PublishDir, "NativeAotConsole.codegen.dgml.xml");
-        var v2ScanDgml = Path.Combine(aotV2PublishDir, "NativeAotConsole.scan.dgml.xml");
+        var v2CodegenDgml = Path.Join(aotV2PublishDir, "NativeAotConsole.codegen.dgml.xml");
+        var v2ScanDgml = Path.Join(aotV2PublishDir, "NativeAotConsole.scan.dgml.xml");
         NativeAotConsoleV2Dgml = File.Exists(v2CodegenDgml) ? v2CodegenDgml
             : File.Exists(v2ScanDgml) ? v2ScanDgml
             : null;
@@ -243,7 +243,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
     }
 
     private string SamplePath(string project, string config, string tfm, string file)
-        => Path.Combine(_repoRoot, "samples", project, "bin", config, tfm, file);
+        => Path.Join(_repoRoot, "samples", project, "bin", config, tfm, file);
 
     private async Task BuildProject(string relativePath)
     {
@@ -252,11 +252,11 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         var assemblyName = projectName.Equals("RichLibraryV2", StringComparison.Ordinal)
             ? "RichLibrary"
             : projectName;
-        var expectedDll = Path.Combine(_repoRoot, relativePath,
+        var expectedDll = Path.Join(_repoRoot, relativePath,
             "bin", configuration, "net10.0", $"{assemblyName}.dll");
 
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
-        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+        var lockPath = Path.Join(Path.GetTempPath(), lockName);
 
         FileStream lockFile;
         while (true)
@@ -272,10 +272,10 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             }
         }
 
-        try
+        using (lockFile)
         {
             // Re-check after acquiring lock
-            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            var projectDirectory = Path.Join(_repoRoot, relativePath);
             if (TestProcessEnvironment.IsFixtureOutputCurrent(
                 expectedDll,
                 projectDirectory,
@@ -304,10 +304,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 throw new InvalidOperationException(
                     $"dotnet build failed for {relativePath} (exit {process.ExitCode}):\n{stdout}\n{stderr}");
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     private async Task PublishSelfContainedProject(string relativePath)
@@ -315,12 +311,12 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         var rid = RuntimeInformation.RuntimeIdentifier;
         var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
         var apphostExt = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
-        var expectedOutput = Path.Combine(_repoRoot, relativePath,
+        var expectedOutput = Path.Join(_repoRoot, relativePath,
             "bin", configuration, "net10.0", rid, "publish",
             $"{Path.GetFileName(relativePath)}{apphostExt}");
 
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
-        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+        var lockPath = Path.Join(Path.GetTempPath(), lockName);
 
         FileStream lockFile;
         while (true)
@@ -336,10 +332,10 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             }
         }
 
-        try
+        using (lockFile)
         {
             // Re-check after acquiring lock
-            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            var projectDirectory = Path.Join(_repoRoot, relativePath);
             if (Dotsider.Core.Analysis.SingleFileBundleReader.IsBundle(expectedOutput, out _) &&
                 TestProcessEnvironment.IsFixtureOutputCurrent(
                     expectedOutput,
@@ -366,21 +362,17 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 throw new InvalidOperationException(
                     $"dotnet publish failed for {relativePath} (exit {process.ExitCode})");
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     private async Task PublishReadyToRunProject(string relativePath)
     {
         var rid = RuntimeInformation.RuntimeIdentifier;
         var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
-        var expectedOutput = Path.Combine(_repoRoot, relativePath,
+        var expectedOutput = Path.Join(_repoRoot, relativePath,
             "bin", configuration, "net10.0", rid, "publish", $"{Path.GetFileName(relativePath)}.dll");
 
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
-        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+        var lockPath = Path.Join(Path.GetTempPath(), lockName);
         FileStream lockFile;
         while (true)
         {
@@ -395,9 +387,9 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             }
         }
 
-        try
+        using (lockFile)
         {
-            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            var projectDirectory = Path.Join(_repoRoot, relativePath);
             if (TestProcessEnvironment.IsFixtureOutputCurrent(
                 expectedOutput,
                 projectDirectory,
@@ -421,20 +413,16 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             await process.WaitForExitAsync();
             // A non-zero exit means crossgen2 is unavailable for this RID; the outputs stay absent.
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     private async Task PublishWasmProject(string relativePath)
     {
         var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
-        var expectedOutput = Path.Combine(_repoRoot, relativePath,
+        var expectedOutput = Path.Join(_repoRoot, relativePath,
             "bin", configuration, "net10.0", "browser-wasm", "publish", "dotnet.native.wasm");
 
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + "-browser-wasm.lock";
-        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+        var lockPath = Path.Join(Path.GetTempPath(), lockName);
 
         FileStream lockFile;
         while (true)
@@ -450,9 +438,9 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             }
         }
 
-        try
+        using (lockFile)
         {
-            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            var projectDirectory = Path.Join(_repoRoot, relativePath);
             if (TestProcessEnvironment.IsFixtureOutputCurrent(
                 expectedOutput,
                 projectDirectory,
@@ -478,10 +466,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             await process.WaitForExitAsync();
             // A non-zero exit means wasm-tools is unavailable; the output stays absent.
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     private async Task PublishNativeAotProject(string relativePath)
@@ -489,19 +473,19 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         var rid = RuntimeInformation.RuntimeIdentifier;
         var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
         var apphostExt = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
-        var publishDir = Path.Combine(_repoRoot, relativePath,
+        var publishDir = Path.Join(_repoRoot, relativePath,
             "bin", configuration, "net10.0", rid, "publish");
         var projectName = Path.GetFileName(relativePath);
         var assemblyName = projectName.Equals("NativeAotConsoleV2", StringComparison.Ordinal)
             ? "NativeAotConsole"
             : projectName;
-        var expectedOutput = Path.Combine(publishDir, $"{assemblyName}{apphostExt}");
+        var expectedOutput = Path.Join(publishDir, $"{assemblyName}{apphostExt}");
         // The mstat sidecar joins the up-to-date check so a publish that predates sidecar
         // emission republishes once instead of leaving sidecar tests skipping forever.
-        var expectedMstat = Path.Combine(publishDir, $"{assemblyName}.mstat");
+        var expectedMstat = Path.Join(publishDir, $"{assemblyName}.mstat");
 
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
-        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+        var lockPath = Path.Join(Path.GetTempPath(), lockName);
 
         FileStream lockFile;
         while (true)
@@ -517,10 +501,10 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             }
         }
 
-        try
+        using (lockFile)
         {
             // Re-check after acquiring lock
-            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            var projectDirectory = Path.Join(_repoRoot, relativePath);
             if (TestProcessEnvironment.IsFixtureOutputCurrent(
                     expectedOutput,
                     projectDirectory,
@@ -555,10 +539,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 throw new InvalidOperationException(
                     $"dotnet publish failed for {relativePath} (exit {process.ExitCode})");
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     private static string GetRepoRoot()
@@ -566,7 +546,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         var dir = AppContext.BaseDirectory;
         while (dir != null)
         {
-            if (File.Exists(Path.Combine(dir, "Dotsider.slnx")))
+            if (File.Exists(Path.Join(dir, "Dotsider.slnx")))
                 return dir;
             dir = Path.GetDirectoryName(dir);
         }

@@ -16,10 +16,10 @@ public sealed class DeploymentAppTests
     [TestMethod]
     public void Run_HostKeyScanFails_DoesNotCreateCredentialFilesOrConnect()
     {
-        string root = Path.Combine(Path.GetTempPath(), "dotsider-deploy-app-test-" + Guid.NewGuid().ToString("N"));
+        string root = Path.Join(Path.GetTempPath(), "dotsider-deploy-app-test-" + Guid.NewGuid().ToString("N"));
         string? originalKey = Environment.GetEnvironmentVariable("DEPLOY_SSH_KEY");
         Directory.CreateDirectory(root);
-        string deployHost = Path.Combine(root, "dotsider-deploy-host");
+        string deployHost = Path.Join(root, "dotsider-deploy-host");
         File.WriteAllText(deployHost, "candidate");
         string[] temporaryDirectoriesBefore = Directory.GetDirectories(Path.GetTempPath(), "dotsider-deploy-*");
         var runner = new StubDeploymentProcessRunner(
@@ -55,13 +55,13 @@ public sealed class DeploymentAppTests
     [TestMethod]
     public void Run_DeployRsyncFails_RestartsPreviouslyActiveIntegrityTimer()
     {
-        string root = Path.Combine(Path.GetTempPath(), "dotsider-deploy-app-test-" + Guid.NewGuid().ToString("N"));
+        string root = Path.Join(Path.GetTempPath(), "dotsider-deploy-app-test-" + Guid.NewGuid().ToString("N"));
         string? originalKey = Environment.GetEnvironmentVariable("DEPLOY_SSH_KEY");
         Directory.CreateDirectory(root);
-        string deployHost = Path.Combine(root, "dotsider-deploy-host");
-        string docs = Directory.CreateDirectory(Path.Combine(root, "docs")).FullName;
-        string website = Directory.CreateDirectory(Path.Combine(root, "website")).FullName;
-        string sample = Directory.CreateDirectory(Path.Combine(root, "sample")).FullName;
+        string deployHost = Path.Join(root, "dotsider-deploy-host");
+        string docs = Directory.CreateDirectory(Path.Join(root, "docs")).FullName;
+        string website = Directory.CreateDirectory(Path.Join(root, "website")).FullName;
+        string sample = Directory.CreateDirectory(Path.Join(root, "sample")).FullName;
         File.WriteAllText(deployHost, "candidate");
         string[] temporaryDirectoriesBefore = Directory.GetDirectories(Path.GetTempPath(), "dotsider-deploy-*");
         var rsyncCount = 0;

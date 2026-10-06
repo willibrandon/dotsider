@@ -65,9 +65,8 @@ public static class ReadyToRunCorrelationQuery
 
         // As a MethodDef token (0x06rrrrrr).
         if ((value & 0xFF00_0000) == 0x0600_0000 && value <= 0x06FF_FFFF)
-            foreach (var m in index.Methods)
-                if (m.Token == (int)value && !matches.Contains(m))
-                    matches.Add(m);
+            foreach (var m in index.Methods.Where(m => m.Token == (int)value && !matches.Contains(m)))
+                matches.Add(m);
 
         // As a native address.
         if (index.FindByAddress(value) is { } byAddress && !matches.Contains(byAddress))
@@ -107,9 +106,8 @@ public static class ReadyToRunCorrelationQuery
             : [analyzer];
         var ilOnly = new List<(AssemblyAnalyzer Provider, MethodDefInfo Method)>();
         foreach (var provider in providers)
-            foreach (var m in provider.MethodDefs)
-                if (Matches(m.DeclaringType, m.Name, typeFilter, methodName))
-                    ilOnly.Add((provider, m));
+            foreach (var m in provider.MethodDefs.Where(m => Matches(m.DeclaringType, m.Name, typeFilter, methodName)))
+                ilOnly.Add((provider, m));
 
         if (ilOnly.Count == 0)
             return ReadyToRunQueryResult.NotFound($"no method matches '{original}'");

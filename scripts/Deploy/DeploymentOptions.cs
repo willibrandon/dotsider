@@ -78,7 +78,7 @@ internal sealed record DeploymentOptions(
         bool mustExist)
     {
         string value = ScriptSupport.GetString(values, option, defaultValue);
-        string path = Path.GetFullPath(Path.IsPathFullyQualified(value) ? value : Path.Combine(repositoryRoot, value));
+        string path = Path.GetFullPath(Path.IsPathFullyQualified(value) ? value : Path.Join(repositoryRoot, value));
         if (mustExist && !File.Exists(path) && !Directory.Exists(path))
         {
             throw new FileNotFoundException($"{option} path '{path}' does not exist.");

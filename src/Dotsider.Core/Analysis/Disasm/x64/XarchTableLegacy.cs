@@ -44,6 +44,13 @@ internal static partial class XarchTables
 
     private static void RegisterOneByteMisc()
     {
+        RegisterOneByteStackAndMoves();
+        RegisterOneByteStringsAndImmediates();
+        RegisterOneByteControl();
+    }
+
+    private static void RegisterOneByteStackAndMoves()
+    {
         // 50-5F push/pop, default 64-bit operand size.
         for (var i = 0; i < 8; i++)
         {
@@ -100,7 +107,10 @@ internal static partial class XarchTables
         Row(MapOneByte, PpNone, 0x9D, "popf", flags: F.Default64);
         Row(MapOneByte, PpNone, 0x9E, "sahf");
         Row(MapOneByte, PpNone, 0x9F, "lahf");
+    }
 
+    private static void RegisterOneByteStringsAndImmediates()
+    {
         Row(MapOneByte, PpNone, 0xA0, "mov", K.AL, K.Ob);
         Row(MapOneByte, PpNone, 0xA1, "mov", K.RAX, K.Ov);
         Row(MapOneByte, PpNone, 0xA2, "mov", K.Ob, K.AL);
@@ -124,7 +134,10 @@ internal static partial class XarchTables
             Row(MapOneByte, PpNone, 0xB0 + i, "mov", K.Zb, K.Ib);
             Row(MapOneByte, PpNone, 0xB8 + i, "mov", K.Zv, K.Iv);
         }
+    }
 
+    private static void RegisterOneByteControl()
+    {
         Row(MapOneByte, PpNone, 0xC0, null, K.Eb, K.Ib, flags: F.Group, groupOrTuple: Grp2);
         Row(MapOneByte, PpNone, 0xC1, null, K.Ev, K.Ib, flags: F.Group, groupOrTuple: Grp2);
         Row(MapOneByte, PpNone, 0xC2, "ret", K.Iw);
@@ -235,6 +248,13 @@ internal static partial class XarchTables
 
     private static void Register0FLegacy()
     {
+        Register0FSystem();
+        Register0FConditional();
+        Register0FInteger();
+    }
+
+    private static void Register0FSystem()
+    {
         Row(Map0F, PpNone, 0x05, "syscall");
         Row(Map0F, PpNone, 0x0B, "ud2");
         Row(Map0F, PpNone, 0x08, "invd");
@@ -253,7 +273,10 @@ internal static partial class XarchTables
         Row(Map0F, PpNone, 0x34, "sysenter");
         Row(Map0F, PpNone, 0x35, "sysexit");
         Row(Map0F, PpNone, 0xAE, null, flags: F.Group | F.HasModRm, groupOrTuple: Grp15);
+    }
 
+    private static void Register0FConditional()
+    {
         // 40-4F cmovcc.
         string[] cc =
         [
@@ -280,7 +303,10 @@ internal static partial class XarchTables
         ];
         for (var i = 0; i < 16; i++)
             Row(Map0F, PpNone, 0x90 + i, setcc[i], K.Eb);
+    }
 
+    private static void Register0FInteger()
+    {
         Row(Map0F, PpNone, 0xA0, "push", K.None, flags: F.Default64); // push fs
         Row(Map0F, PpNone, 0xA1, "pop", K.None, flags: F.Default64);  // pop fs
         Row(Map0F, PpNone, 0xA3, "bt", K.Ev, K.Gv);

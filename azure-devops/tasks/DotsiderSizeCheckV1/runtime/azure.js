@@ -53,9 +53,8 @@ async function main() {
     let dotsiderVersion = "";
     let errorOutputs = (0, report_1.createErrorOutputs)(artifactName, dotsiderVersion);
     try {
-        const defaultRoot = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY
-            || process.env.AGENT_TEMPDIRECTORY
-            || os.tmpdir();
+        const reportDirectory = getInput("reportDirectory")?.trim();
+        const defaultRoot = reportDirectory || await fs.mkdtemp(path.join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || process.env.AGENT_TEMPDIRECTORY || os.tmpdir(), "dotsider-size-check-"));
         let inputs = (0, input_1.createInputs)({
             target: getInput("target"),
             baseline: getInput("baseline"),
@@ -66,7 +65,7 @@ async function main() {
             why: getInput("why"),
             dotsiderVersion: getInput("dotsiderVersion"),
             dotsiderPath: getInput("dotsiderPath"),
-            reportDirectory: getInput("reportDirectory"),
+            reportDirectory,
             publishSummary: getInput("publishSummary"),
             publishReports: getInput("publishReports"),
             artifactName: getInput("artifactName"),
@@ -105,7 +104,7 @@ async function main() {
         }
         if (discovery.publish && execution.report
             && (execution.result === "passed" || execution.result === "passed-with-warnings")) {
-            const baselineDirectory = path.join(process.env.AGENT_TEMPDIRECTORY || os.tmpdir(), "dotsider-baseline-upload", discovery.artifactName);
+            const baselineDirectory = await fs.mkdtemp(path.join(process.env.AGENT_TEMPDIRECTORY || os.tmpdir(), "dotsider-baseline-upload-"));
             await (0, baseline_1.stageBaseline)(execution.report, discovery.identity, currentAzureSource(discovery.artifactName), baselineDirectory);
             vso("artifact.upload", { artifactname: discovery.artifactName }, baselineDirectory);
         }

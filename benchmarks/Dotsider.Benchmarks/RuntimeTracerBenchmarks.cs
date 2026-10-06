@@ -111,10 +111,10 @@ public class RuntimeTracerThroughputBenchmarks
     {
         // Create a temporary load-generator app that runs for 30 seconds
         // generating steady GC/JIT/Loader events
-        _loadGenDir = Path.Combine(Path.GetTempPath(), $"dotsider-bench-loadgen-{Guid.NewGuid().ToString("N")[..8]}");
+        _loadGenDir = Path.Join(Path.GetTempPath(), $"dotsider-bench-loadgen-{Guid.NewGuid().ToString("N")[..8]}");
         Directory.CreateDirectory(_loadGenDir);
 
-        File.WriteAllText(Path.Combine(_loadGenDir, "LoadGen.csproj"), """
+        File.WriteAllText(Path.Join(_loadGenDir, "LoadGen.csproj"), """
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <OutputType>Exe</OutputType>
@@ -124,7 +124,7 @@ public class RuntimeTracerThroughputBenchmarks
             </Project>
             """);
 
-        File.WriteAllText(Path.Combine(_loadGenDir, "Program.cs"), """
+        File.WriteAllText(Path.Join(_loadGenDir, "Program.cs"), """
             var sw = System.Diagnostics.Stopwatch.StartNew();
             var list = new List<byte[]>();
             int i = 0;
@@ -154,7 +154,7 @@ public class RuntimeTracerThroughputBenchmarks
         if (buildProcess.ExitCode != 0)
             throw new InvalidOperationException("Failed to build load-gen app");
 
-        _loadGenDll = Path.Combine(_loadGenDir, "bin", "Release", "net10.0", "LoadGen.dll");
+        _loadGenDll = Path.Join(_loadGenDir, "bin", "Release", "net10.0", "LoadGen.dll");
         if (!File.Exists(_loadGenDll))
             throw new FileNotFoundException($"LoadGen.dll not found: {_loadGenDll}");
 
@@ -185,7 +185,7 @@ public class RuntimeTracerThroughputBenchmarks
         _tracer.Dispose();
 
         try { if (Directory.Exists(_loadGenDir)) Directory.Delete(_loadGenDir, recursive: true); }
-        catch { /* best effort */ }
+        catch (Exception caughtException) when (caughtException is System.IO.IOException or UnauthorizedAccessException) { /* best effort */ }
     }
 
     /// <summary>
@@ -238,10 +238,10 @@ public class RuntimeTracerWritePathBenchmarks
         _helloWorldDll = BenchmarkHelpers.GetBuildPath("samples/HelloWorld", "HelloWorld.dll");
 
         // Load-gen for throughput benchmarks
-        _loadGenDir = Path.Combine(Path.GetTempPath(), $"dotsider-bench-wp-{Guid.NewGuid().ToString("N")[..8]}");
+        _loadGenDir = Path.Join(Path.GetTempPath(), $"dotsider-bench-wp-{Guid.NewGuid().ToString("N")[..8]}");
         Directory.CreateDirectory(_loadGenDir);
 
-        File.WriteAllText(Path.Combine(_loadGenDir, "LoadGen.csproj"), """
+        File.WriteAllText(Path.Join(_loadGenDir, "LoadGen.csproj"), """
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <OutputType>Exe</OutputType>
@@ -251,7 +251,7 @@ public class RuntimeTracerWritePathBenchmarks
             </Project>
             """);
 
-        File.WriteAllText(Path.Combine(_loadGenDir, "Program.cs"), """
+        File.WriteAllText(Path.Join(_loadGenDir, "Program.cs"), """
             var sw = System.Diagnostics.Stopwatch.StartNew();
             var list = new List<byte[]>();
             int i = 0;
@@ -281,7 +281,7 @@ public class RuntimeTracerWritePathBenchmarks
         if (buildProcess.ExitCode != 0)
             throw new InvalidOperationException("Failed to build load-gen app");
 
-        _loadGenDll = Path.Combine(_loadGenDir, "bin", "Release", "net10.0", "LoadGen.dll");
+        _loadGenDll = Path.Join(_loadGenDir, "bin", "Release", "net10.0", "LoadGen.dll");
     }
 
     /// <summary>
@@ -305,7 +305,7 @@ public class RuntimeTracerWritePathBenchmarks
         _lastTracer?.Dispose();
 
         try { if (Directory.Exists(_loadGenDir)) Directory.Delete(_loadGenDir, recursive: true); }
-        catch { /* best effort */ }
+        catch (Exception caughtException) when (caughtException is System.IO.IOException or UnauthorizedAccessException) { /* best effort */ }
     }
 
     /// <summary>

@@ -10,7 +10,7 @@ namespace Dotsider.Tests;
 [TestClass]
 public sealed class SessionCliTests
 {
-    private static readonly string s_projectPath = Path.Combine(
+    private static readonly string s_projectPath = Path.Join(
         TestHelpers.GetRepoRoot(), "src", "Dotsider");
 
     private static readonly string s_buildConfig = TestProcessEnvironment.CurrentBuildConfiguration;

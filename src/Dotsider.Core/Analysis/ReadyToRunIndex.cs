@@ -23,9 +23,7 @@ public sealed class ReadyToRunIndex
         _byToken = byToken;
         _ranges = ranges;
         TotalCodeSize = totalCodeSize;
-        foreach (var m in methods)
-            if (m.IsGenericInstantiation)
-                InstantiationCount++;
+        InstantiationCount = methods.Count(m => m.IsGenericInstantiation);
     }
 
     /// <summary>Every precompiled method entry (base methods and generic instantiations).</summary>
@@ -52,9 +50,8 @@ public sealed class ReadyToRunIndex
     public IReadOnlyList<ReadyToRunMethodEntry> FindAll(string assemblyName, int token)
     {
         var result = new List<ReadyToRunMethodEntry>();
-        foreach (var m in Methods)
-            if (m.Token == token && string.Equals(m.AssemblyName, assemblyName, StringComparison.Ordinal))
-                result.Add(m);
+        foreach (var m in Methods.Where(m => m.Token == token && string.Equals(m.AssemblyName, assemblyName, StringComparison.Ordinal)))
+            result.Add(m);
         return result;
     }
 
@@ -100,9 +97,8 @@ public sealed class ReadyToRunIndex
                 byToken[key] = method;
 
             total += method.TotalSize;
-            foreach (var range in method.CodeRanges)
-                if (range.Size > 0)
-                    ranges.Add((range.VirtualAddress, range.VirtualAddress + (ulong)range.Size, method));
+            foreach (var range in method.CodeRanges.Where(range => range.Size > 0))
+                ranges.Add((range.VirtualAddress, range.VirtualAddress + (ulong)range.Size, method));
         }
 
         ranges.Sort(static (a, b) => a.Item1.CompareTo(b.Item1));

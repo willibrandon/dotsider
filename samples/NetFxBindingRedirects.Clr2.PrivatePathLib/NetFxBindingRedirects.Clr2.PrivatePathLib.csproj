@@ -11,7 +11,6 @@
     <RootNamespace>NetFxBindingRedirects.Clr2.PrivatePathLib</RootNamespace>
     <AssemblyName>NetFxBindingRedirects.Clr2.PrivatePathLib</AssemblyName>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
-    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />

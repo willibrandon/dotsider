@@ -737,8 +737,11 @@ public sealed class DotsiderState : IDisposable
     {
         get
         {
-            var snapshot = GraphSnapshot;
-            return snapshot?.NavigationById ?? Volatile.Read(ref _legacyGraphNavigation);
+            lock (_graphBuildLock)
+            {
+                var snapshot = GraphSnapshot;
+                return snapshot?.NavigationById ?? _legacyGraphNavigation;
+            }
         }
         set
         {
@@ -1768,8 +1771,9 @@ public sealed class DotsiderState : IDisposable
                 App.Invalidate();
             }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException handledException) when (cancellationToken.IsCancellationRequested)
         {
+            System.Diagnostics.Trace.TraceInformation("NudgeExtraFramesAsync: {0}", handledException);
         }
     }
 
@@ -1933,24 +1937,18 @@ public sealed class DotsiderState : IDisposable
                 _ => throw new InvalidOperationException()
             };
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}");
             return false;
         }
 
+        using var probeOwner = new OwnedResource<AssemblyAnalyzer>(probe);
+
         // Filter by declaring type first to avoid cross-type name collisions.
         // Always scope to declaring type when available — don't fall back to unscoped.
-        List<MethodDefInfo> candidates;
-        if (declaringType is not null)
-        {
-            candidates = [.. probe.MethodDefs.Where(m =>
-                m.Name == memberName && m.DeclaringType == declaringType)];
-        }
-        else
-        {
-            candidates = [.. probe.MethodDefs.Where(m => m.Name == memberName)];
-        }
+        List<MethodDefInfo> candidates = [.. probe.MethodDefs.Where(m =>
+            m.Name == memberName && (declaringType is null || m.DeclaringType == declaringType))];
 
         MethodDefInfo? methodTarget = candidates.Count == 1 ? candidates[0]
             : candidates.Count > 1 && !string.IsNullOrEmpty(signature)
@@ -1958,13 +1956,13 @@ public sealed class DotsiderState : IDisposable
             : candidates.Count > 0 ? candidates[0] : null;
         if (methodTarget is null)
         {
-            probe.Dispose();
             ShowTransientNotice($"Method {memberName} not found in {assemblyName}");
             return false;
         }
 
         PushIlBackEntry(true);
         PushAssemblyDirect(probe);
+        probeOwner.Release();
         IlSelectedMethod = methodTarget;
         ExpandIlTreeForMethod(methodTarget);
         SetIlFocusedTreeKey($"method:{methodTarget.Token}");
@@ -2003,22 +2001,23 @@ public sealed class DotsiderState : IDisposable
                 _ => throw new InvalidOperationException()
             };
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}");
             return false;
         }
 
+        using var probeOwner = new OwnedResource<AssemblyAnalyzer>(probe);
         var typeTarget = probe.TypeDefs.FirstOrDefault(t => t.FullName == typeRef.FullName);
         if (typeTarget is null)
         {
-            probe.Dispose();
             ShowTransientNotice($"Type {typeRef.Name} not found");
             return false;
         }
 
         PushIlBackEntry(true);
         PushAssemblyDirect(probe);
+        probeOwner.Release();
         IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(typeTarget.Namespace) ? typeTarget.Namespace : "(global)")}"] = true;
         SetIlFocusedTreeKey($"type:{typeTarget.FullName}");
         NavigateToTab(TabId.IlInspector);
@@ -2057,27 +2056,20 @@ public sealed class DotsiderState : IDisposable
                 _ => throw new InvalidOperationException()
             };
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             ShowTransientNotice($"Cannot open resolved assembly for {assemblyName}");
             return false;
         }
 
+        using var probeOwner = new OwnedResource<AssemblyAnalyzer>(probe);
+
         // Scope field lookup by declaring type when available
-        FieldDefInfo? fieldTarget = null;
-        if (declaringType is not null)
-        {
-            fieldTarget = probe.FieldDefs.FirstOrDefault(f =>
-                f.Name == fieldName && f.DeclaringType == declaringType);
-        }
-        else
-        {
-            fieldTarget = probe.FieldDefs.FirstOrDefault(f => f.Name == fieldName);
-        }
+        var fieldTarget = probe.FieldDefs.FirstOrDefault(f =>
+            f.Name == fieldName && (declaringType is null || f.DeclaringType == declaringType));
 
         if (fieldTarget is null)
         {
-            probe.Dispose();
             ShowTransientNotice($"Field {fieldName} not found");
             return false;
         }
@@ -2085,12 +2077,12 @@ public sealed class DotsiderState : IDisposable
         var dt = probe.TypeDefs.FirstOrDefault(t => t.FullName == fieldTarget.DeclaringType);
         if (dt is null)
         {
-            probe.Dispose();
             return false;
         }
 
         PushIlBackEntry(true);
         PushAssemblyDirect(probe);
+        probeOwner.Release();
         IlSelectedField = fieldTarget;
         IlTreeExpansionState[$"ns:{(!string.IsNullOrEmpty(dt.Namespace) ? dt.Namespace : "(global)")}"] = true;
         IlTreeExpansionState[$"type:{dt.FullName}"] = true;
@@ -2566,10 +2558,11 @@ public sealed class DotsiderState : IDisposable
         {
             result = graphBuilder(capturedAnalyzer, cancellation.Token);
         }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        catch (OperationCanceledException handledException) when (cancellation.IsCancellationRequested)
         {
+            System.Diagnostics.Trace.TraceInformation("BuildAndPublishGraph: {0}", handledException);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException)
         {
             error = exception;
         }

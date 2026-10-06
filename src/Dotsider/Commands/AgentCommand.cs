@@ -34,9 +34,9 @@ internal static class AgentCommand
             var exeDir = Path.GetDirectoryName(Environment.ProcessPath);
             if (exeDir is not null)
             {
-                candidates.Add(Path.Combine(exeDir, "dotsider-mcp"));
+                candidates.Add(Path.Join(exeDir, "dotsider-mcp"));
                 if (OperatingSystem.IsWindows())
-                    candidates.Add(Path.Combine(exeDir, "dotsider-mcp.exe"));
+                    candidates.Add(Path.Join(exeDir, "dotsider-mcp.exe"));
             }
 
             foreach (var candidate in candidates)

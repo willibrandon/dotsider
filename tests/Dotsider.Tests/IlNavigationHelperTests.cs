@@ -110,12 +110,12 @@ public sealed class IlNavigationHelperTests
 
         var markerStart = line.IndexOf(IlSourceLinkDecorationProvider.SourceLinkMarker, StringComparison.Ordinal);
         Assert.IsNotNull(actual);
-        Assert.AreEqual(new DocumentPosition(1, markerStart + 1), actual.Value.Start);
+        Assert.AreEqual(new DocumentPosition(1, markerStart + 1), TestAssert.HasValue(actual).Start);
         Assert.AreEqual(
             new DocumentPosition(
                 1,
                 markerStart + IlSourceLinkDecorationProvider.SourceLinkMarker.Length + 1),
-            actual.Value.End);
+            TestAssert.HasValue(actual).End);
     }
 
     /// <summary>
@@ -141,8 +141,8 @@ public sealed class IlNavigationHelperTests
         var actual = IlNavigationHelper.GetSourceLinkYankRangeAtCursor(editorState, instructions);
 
         Assert.IsNotNull(actual);
-        Assert.AreEqual(new DocumentPosition(1, 4), actual.Value.Start);
-        Assert.AreEqual(new DocumentPosition(1, sourceRange.Length + 4), actual.Value.End);
+        Assert.AreEqual(new DocumentPosition(1, 4), TestAssert.HasValue(actual).Start);
+        Assert.AreEqual(new DocumentPosition(1, sourceRange.Length + 4), TestAssert.HasValue(actual).End);
     }
 
     /// <summary>

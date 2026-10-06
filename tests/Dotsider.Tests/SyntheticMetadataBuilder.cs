@@ -93,15 +93,14 @@ internal static class SyntheticMetadataBuilder
             methodList: MetadataTokens.MethodDefinitionHandle(1));
         TypeDefinitionHandle owner = default;
         string[] effectiveTypeNames = typeNames.Length == 0 ? ["Owner"] : typeNames;
-        foreach (var typeName in effectiveTypeNames)
-        {
-            var type = metadata.AddTypeDefinition(
+        foreach (var type in effectiveTypeNames.Select(typeName => metadata.AddTypeDefinition(
                 TypeAttributes.Public,
                 metadata.GetOrAddString("Synthetic"),
                 metadata.GetOrAddString(typeName),
                 baseType: default,
                 fieldList: MetadataTokens.FieldDefinitionHandle(1),
-                methodList: MetadataTokens.MethodDefinitionHandle(1));
+                methodList: MetadataTokens.MethodDefinitionHandle(1))))
+        {
             if (owner.IsNil)
             {
                 owner = type;

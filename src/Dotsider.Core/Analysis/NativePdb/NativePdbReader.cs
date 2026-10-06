@@ -193,14 +193,11 @@ internal static class NativePdbReader
                 return false;
             }
 
-            foreach (var symbol in moduleSymbols)
-            {
-                if (Resolve(symbol.Name, symbol.Segment, symbol.Offset, symbol.Size, symbol.IsData,
-                    symbol.SourceFile, symbol.Line) is { } raw)
-                {
-                    result.Add(raw);
-                }
-            }
+            result.AddRange(moduleSymbols
+                .Select(symbol => Resolve(symbol.Name, symbol.Segment, symbol.Offset, symbol.Size, symbol.IsData,
+                    symbol.SourceFile, symbol.Line))
+                .Where(symbol => symbol.HasValue)
+                .Select(symbol => symbol.GetValueOrDefault()));
         }
 
         // Publics — named symbols without sizes; the merge pass sizes and dedups them against the

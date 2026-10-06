@@ -191,6 +191,8 @@ internal static class AnalyzeCommand
                         break;
                 }
 
+                using var analyzerScope = analyzer;
+
                 // Output-path collision check — reject if -o matches EITHER the original
                 // input path OR the resolved analyzed path, so neither can be clobbered
                 if (outputPath is not null)
@@ -202,12 +204,10 @@ internal static class AnalyzeCommand
                             StringComparison.OrdinalIgnoreCase))
                     {
                         OutputFormatter.WriteError("Error: Output path cannot be the same as the input file");
-                        analyzer.Dispose();
                         return Task.FromResult(1);
                     }
                 }
 
-                using var analyzerScope = analyzer;
                 var disassembler = analyzer.HasMetadata ? new IlDisassembler(analyzer) : null;
 
                 // Defer opening the output file until we know the input is valid

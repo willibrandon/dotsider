@@ -66,15 +66,13 @@ public static class DgmlReader
                     if (int.TryParse(reader.GetAttribute("Id"), out var id))
                         nodes.Add(new DgmlNode(id, reader.GetAttribute("Label") ?? ""));
                 }
-                else if (reader.LocalName == "Link")
+                else if (reader.LocalName == "Link"
+                    && int.TryParse(reader.GetAttribute("Source"), out var source)
+                    && int.TryParse(reader.GetAttribute("Target"), out var target))
                 {
-                    if (int.TryParse(reader.GetAttribute("Source"), out var source)
-                        && int.TryParse(reader.GetAttribute("Target"), out var target))
-                    {
-                        var reason = reader.GetAttribute("Reason");
-                        links.Add(new DgmlLink(source, target,
-                            string.IsNullOrEmpty(reason) ? null : reason));
-                    }
+                    var reason = reader.GetAttribute("Reason");
+                    links.Add(new DgmlLink(source, target,
+                        string.IsNullOrEmpty(reason) ? null : reason));
                 }
             }
 

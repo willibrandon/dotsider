@@ -143,12 +143,11 @@ public class NativeDisasmAotFixtureTests
     private static IEnumerable<(byte[] Code, string Name)> ManagedFunctions(AssemblyAnalyzer analyzer, NativeSymbolInfo symbols)
     {
         var raw = analyzer.RawBytes;
-        foreach (var s in symbols.Symbols)
+        foreach (var s in symbols.Symbols.Where(s => s.Kind == NativeSymbolKind.Function
+                     && s.ManagedName is not null && s.FileOffset.HasValue && s.Size > 0
+                     && s.FileOffset.GetValueOrDefault() + s.Size <= raw.Length))
         {
-            if (s.Kind != NativeSymbolKind.Function || s.ManagedName is null || s.FileOffset is not { } fo || s.Size <= 0)
-                continue;
-            if (fo + s.Size > raw.Length) continue;
-            yield return (raw.Span.Slice((int)fo, (int)s.Size).ToArray(), s.ManagedName);
+            yield return (raw.Span.Slice((int)s.FileOffset.GetValueOrDefault(), (int)s.Size).ToArray(), s.ManagedName!);
         }
     }
 }

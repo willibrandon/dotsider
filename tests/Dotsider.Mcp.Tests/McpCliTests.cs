@@ -12,7 +12,7 @@ namespace Dotsider.Mcp.Tests;
 [TestClass]
 public partial class McpCliTests
 {
-    private static readonly string s_projectPath = Path.Combine(
+    private static readonly string s_projectPath = Path.Join(
         FindRepoRoot(), "src", "Dotsider.Mcp");
 
     private static readonly string s_buildConfig = TestProcessEnvironment.CurrentBuildConfiguration;
@@ -52,7 +52,7 @@ public partial class McpCliTests
 
         // Launch the built DLL directly instead of going through `dotnet run`
         // which has project resolution overhead that can exceed the timeout.
-        var dllPath = Path.Combine(
+        var dllPath = Path.Join(
             TestProcessEnvironment.GetProjectOutputDirectory(
                 s_projectPath,
                 s_buildConfig,
@@ -108,19 +108,19 @@ public partial class McpCliTests
     public async Task CtrlC_InTerminal_ShutsDownWithoutTransportException()
     {
         var repoRoot = FindRepoRoot();
-        var dotsiderExe = Path.Combine(
+        var dotsiderExe = Path.Join(
             TestProcessEnvironment.GetProjectOutputDirectory(
-                Path.Combine(repoRoot, "src", "Dotsider"),
+                Path.Join(repoRoot, "src", "Dotsider"),
                 s_buildConfig,
                 "net10.0"),
             "dotsider");
         var mcpDir = TestProcessEnvironment.GetProjectOutputDirectory(
-            Path.Combine(repoRoot, "src", "Dotsider.Mcp"),
+            Path.Join(repoRoot, "src", "Dotsider.Mcp"),
             s_buildConfig,
             "net10.0");
 
         Assert.IsTrue(File.Exists(dotsiderExe), $"dotsider not found: {dotsiderExe}");
-        Assert.IsTrue(File.Exists(Path.Combine(mcpDir, "dotsider-mcp")),
+        Assert.IsTrue(File.Exists(Path.Join(mcpDir, "dotsider-mcp")),
             $"dotsider-mcp not found in: {mcpDir}");
 
         // Start an interactive shell in the PTY (bash becomes session leader).
@@ -192,7 +192,10 @@ public partial class McpCliTests
 
         await timeoutCts.CancelAsync();
         try { await readTask; }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("CtrlC_InTerminal_ShutsDownWithoutTransportException: {0}", handledException);
+        }
 
         var allOutput = AnsiEscapeRegex().Replace(output.ToString(), "");
 
@@ -204,7 +207,7 @@ public partial class McpCliTests
     private static string FindRepoRoot()
     {
         var dir = AppContext.BaseDirectory;
-        while (dir is not null && !Directory.Exists(Path.Combine(dir, ".git")))
+        while (dir is not null && !Directory.Exists(Path.Join(dir, ".git")))
             dir = Path.GetDirectoryName(dir);
         return dir ?? throw new InvalidOperationException("Could not find repo root");
     }

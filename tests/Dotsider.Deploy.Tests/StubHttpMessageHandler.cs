@@ -10,6 +10,8 @@ namespace Dotsider.Deploy.Tests;
 internal sealed class StubHttpMessageHandler(
     Func<HttpRequestMessage, HttpResponseMessage>? responseFactory = null) : HttpMessageHandler
 {
+    private readonly List<HttpResponseMessage> _responses = [];
+
     /// <summary>
     /// Gets the request URIs observed by the handler.
     /// Entries preserve invocation order across all responses.
@@ -24,11 +26,24 @@ internal sealed class StubHttpMessageHandler(
     {
         cancellationToken.ThrowIfCancellationRequested();
         RequestUris.Add(request.RequestUri!);
-        HttpResponseMessage response = responseFactory?.Invoke(request)
+        var response = responseFactory?.Invoke(request)
             ?? new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("{\"data\":{\"result\":[{\"value\":[0,\"1.25\"]}]}}"),
             };
+        _responses.Add(response);
         return Task.FromResult(response);
+    }
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            foreach (var response in _responses)
+                response.Dispose();
+            _responses.Clear();
+        }
+        base.Dispose(disposing);
     }
 }

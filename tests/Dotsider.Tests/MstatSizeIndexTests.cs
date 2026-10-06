@@ -105,8 +105,8 @@ public class MstatSizeIndexTests
             .Sum(f => (long)f.Size);
         TestSkip.When(literalBytes == 0, "fixture froze no ownerless objects");
 
-        Assert.IsTrue(index.AssemblyTotals.ContainsKey(MstatSizeIndex.UnattributedName));
-        Assert.IsGreaterThanOrEqualTo(literalBytes, index.AssemblyTotals[MstatSizeIndex.UnattributedName]);
+        Assert.IsTrue(index.AssemblyTotals.TryGetValue(MstatSizeIndex.UnattributedName, out var unattributedTotal));
+        Assert.IsGreaterThanOrEqualTo(literalBytes, unattributedTotal);
         Assert.IsTrue(index.NamespaceTotals.ContainsKey(MstatSizeIndex.UnattributedName));
 
         // CoreLib's own total must not include the literal bytes: methods + MethodTables +

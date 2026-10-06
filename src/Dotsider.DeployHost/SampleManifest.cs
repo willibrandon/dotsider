@@ -111,7 +111,7 @@ internal static class SampleManifest
                 return false;
             }
 
-            string fullPath = Path.GetFullPath(Path.Combine(sampleRoot, relativePath));
+            string fullPath = Path.GetFullPath(Path.Join(sampleRoot, relativePath));
             if (!IsWithinRoot(sampleRoot, fullPath)
                 || !File.Exists(fullPath)
                 || (File.GetAttributes(fullPath) & FileAttributes.ReparsePoint) != 0

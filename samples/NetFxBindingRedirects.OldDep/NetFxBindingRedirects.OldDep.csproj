@@ -8,11 +8,12 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <RootNamespace>NetFxBindingRedirects.OldDep</RootNamespace>
     <AssemblyName>NetFxBindingRedirects.OldDep</AssemblyName>
-    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />
-    <!-- Keep OldDep on a Newtonsoft.Json 12.x package; its assembly reference records 12.0.0.0. -->
-    <PackageReference Include="Newtonsoft.Json" VersionOverride="12.0.1" />
+    <!-- Compile against v1; only the root's v2 reference may deploy app-local. -->
+    <ProjectReference Include="..\NetFxBindingRedirects.Clr2.SharedDep.V1\NetFxBindingRedirects.Clr2.SharedDep.V1.csproj">
+      <Private>false</Private>
+    </ProjectReference>
   </ItemGroup>
 </Project>

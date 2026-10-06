@@ -52,7 +52,7 @@ public class PreIlcOfferTests : IDisposable
         TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
         var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
-        var runTask = app.RunAsync(ct);
+        _ = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -73,7 +73,7 @@ public class PreIlcOfferTests : IDisposable
     public async Task Apphost_ShowsApphostDialog_NotPreIlcDialog()
     {
         var (terminal, app, ct) = CreateDotsiderApp(Samples.HelloWorldExe);
-        var runTask = app.RunAsync(ct);
+        _ = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -95,7 +95,7 @@ public class PreIlcOfferTests : IDisposable
         TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
         var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
-        var runTask = app.RunAsync(ct);
+        _ = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -121,7 +121,7 @@ public class PreIlcOfferTests : IDisposable
         TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
         var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
-        var runTask = app.RunAsync(ct);
+        _ = app.RunAsync(ct);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -146,7 +146,7 @@ public class PreIlcOfferTests : IDisposable
         TestSkip.When(Samples.NativeAotConsoleManagedDll is null, "pre-ILC companion was not produced");
 
         var (terminal, app, ct) = CreateDotsiderApp(Samples.NativeAotConsoleExe!);
-        var runTask = app.RunAsync(ct);
+        _ = app.RunAsync(ct);
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
 
         // Decline the initial offer.
@@ -189,20 +189,20 @@ public class PreIlcOfferTests : IDisposable
         // Build a classic publish tree with the mstat in obj\...\native but NO managed dll —
         // the probe recognizes the tree and finds mstat-only, so HasAttachableCompanion is false.
         var rid = System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier;
-        var tempDir = Path.Combine(Path.GetTempPath(), "dotsider-preilc-mstatonly-" + Guid.NewGuid().ToString("N"));
-        var projectDir = Path.Combine(tempDir, "NativeAotConsole");
-        var publishDir = Path.Combine(projectDir, "bin", "Release", "net10.0", rid, "publish");
-        var objNativeDir = Path.Combine(projectDir, "obj", "Release", "net10.0", rid, "native");
+        var tempDir = Path.Join(Path.GetTempPath(), "dotsider-preilc-mstatonly-" + Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Join(tempDir, "NativeAotConsole");
+        var publishDir = Path.Join(projectDir, "bin", "Release", "net10.0", rid, "publish");
+        var objNativeDir = Path.Join(projectDir, "obj", "Release", "net10.0", rid, "native");
         Directory.CreateDirectory(publishDir);
         Directory.CreateDirectory(objNativeDir);
         try
         {
-            var exeCopy = Path.Combine(publishDir, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            var exeCopy = Path.Join(publishDir, Path.GetFileName(Samples.NativeAotConsoleExe!));
             File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
-            File.Copy(Samples.NativeAotConsoleMstat!, Path.Combine(objNativeDir, "NativeAotConsole.mstat"));
+            File.Copy(Samples.NativeAotConsoleMstat!, Path.Join(objNativeDir, "NativeAotConsole.mstat"));
 
             var (terminal, app, ct) = CreateDotsiderApp(exeCopy);
-            var runTask = app.RunAsync(ct);
+            _ = app.RunAsync(ct);
 
             await new Hex1bTerminalInputSequenceBuilder()
                 .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
@@ -218,9 +218,15 @@ public class PreIlcOfferTests : IDisposable
         }
         finally
         {
-            _state?.Dispose();
-            _state = null;
-            try { Directory.Delete(tempDir, recursive: true); } catch (IOException) { }
+            using (_state)
+            {
+                _state = null;
+            }
+            try { Directory.Delete(tempDir, recursive: true); }
+            catch (IOException handledException)
+            {
+                System.Diagnostics.Trace.TraceInformation("MstatOnly_NoAttachableCompanion_NoDialog: {0}", handledException);
+            }
         }
     }
 

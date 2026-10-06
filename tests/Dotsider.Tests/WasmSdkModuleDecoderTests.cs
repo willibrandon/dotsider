@@ -114,8 +114,8 @@ public sealed class WasmSdkModuleDecoderTests
             m.DeclaringType == "WasmCalculator" && m.Name == "Add");
         var il = new IlDisassembler(analyzer).DisassembleWithText(method);
         Assert.IsNotNull(il);
-        Assert.Contains("IL_", il.Value.Text);
-        Assert.Contains("ldarg", il.Value.Text);
+        Assert.Contains("IL_", TestAssert.HasValue(il).Text);
+        Assert.Contains("ldarg", TestAssert.HasValue(il).Text);
     }
 
     /// <summary>
@@ -207,7 +207,7 @@ public sealed class WasmSdkModuleDecoderTests
         var result = NativeDisassembler.DisassembleSymbol(analyzer, symbol);
         Assert.IsNotNull(result);
 
-        var instructions = result.Value.Instructions;
+        var instructions = TestAssert.HasValue(result).Instructions;
         Assert.IsNotEmpty(instructions);
         Assert.DoesNotContain(static instruction => instruction.IsFallback, instructions);
         Assert.AreEqual(symbol.Size, instructions.Sum(static instruction => instruction.Length));
@@ -232,7 +232,7 @@ public sealed class WasmSdkModuleDecoderTests
             .Take(512)
             .Select(symbol => NativeDisassembler.DisassembleSymbol(analyzer, symbol))
             .Where(static result => result is not null)
-            .SelectMany(static result => result!.Value.Instructions)
+            .SelectMany(static result => TestAssert.HasValue(result).Instructions)
             .Where(static instruction => instruction.OperandText.Contains('<', StringComparison.Ordinal))
             .ToList();
 
@@ -289,7 +289,7 @@ public sealed class WasmSdkModuleDecoderTests
             if (result is null)
                 continue;
 
-            if (result.Value.Instructions.Any(static instruction =>
+            if (TestAssert.HasValue(result).Instructions.Any(static instruction =>
                     instruction.Mnemonic is "call" or "return_call"
                     && instruction.TargetName is not null))
             {

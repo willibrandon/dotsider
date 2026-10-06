@@ -47,7 +47,7 @@ async function main(): Promise<void> {
 }
 
 async function discover(): Promise<void> {
-  const inputs = githubInputs();
+  const inputs = await githubInputs();
   const discovery = await discoverGithubBaseline(inputs, requiredEnvironment("DOTSIDER_PREPARED_RID"));
   writeOutputs({
     status: discovery.source.status,
@@ -77,7 +77,7 @@ async function prepare(): Promise<void> {
 }
 
 async function run(onOutputs: (outputs: StableOutputs) => void): Promise<void> {
-  let inputs = githubInputs();
+  let inputs = await githubInputs();
 
   const tool = preparedTool();
   const executable = await acquireTool(tool);
@@ -140,7 +140,9 @@ async function run(onOutputs: (outputs: StableOutputs) => void): Promise<void> {
   }
 }
 
-function githubInputs() {
+async function githubInputs() {
+  const reportDirectory = optional(process.env.DOTSIDER_INPUT_REPORT_DIRECTORY);
+  const defaultRoot = reportDirectory || await fs.mkdtemp(path.join(process.env.RUNNER_TEMP || os.tmpdir(), "dotsider-size-check-"));
   return createInputs({
     target: process.env.DOTSIDER_INPUT_TARGET,
     baseline: process.env.DOTSIDER_INPUT_BASELINE,
@@ -151,11 +153,11 @@ function githubInputs() {
     why: process.env.DOTSIDER_INPUT_WHY,
     dotsiderVersion: process.env.DOTSIDER_INPUT_VERSION,
     dotsiderPath: process.env.DOTSIDER_INPUT_PATH,
-    reportDirectory: process.env.DOTSIDER_INPUT_REPORT_DIRECTORY,
+    reportDirectory,
     publishSummary: process.env.DOTSIDER_INPUT_PUBLISH_SUMMARY,
     publishReports: process.env.DOTSIDER_INPUT_PUBLISH_REPORTS,
     artifactName: process.env.DOTSIDER_INPUT_ARTIFACT_NAME,
-  }, process.env.RUNNER_TEMP || os.tmpdir());
+  }, defaultRoot);
 }
 
 function preparedDiscovery(): BaselineDiscovery {

@@ -98,7 +98,11 @@ public class SizeDiffViewTests : IDisposable
         }, description: "size-diff chrome without managed tabs");
 
         cts.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("SizeDiffApp_MstatPair_ShowsSizeTabsOnly: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -158,7 +162,11 @@ public class SizeDiffViewTests : IDisposable
         Assert.AreEqual(0, uncoveredCells);
 
         cts.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("SizeDiffTreemap_FillsAreaNoGaps: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -193,7 +201,11 @@ public class SizeDiffViewTests : IDisposable
             _ => _state is { TreemapBreadcrumb.Count: 0 }, description: "breadcrumb popped");
 
         cts.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("SizeDiffTreemap_DrillEnter_EscRestoresLevel: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -220,7 +232,11 @@ public class SizeDiffViewTests : IDisposable
         }
 
         cts.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("SizeDiffTreemap_FilterKeyCyclesFiveModes: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -268,7 +284,11 @@ public class SizeDiffViewTests : IDisposable
             description: "treemap focus restored after popup dismiss");
 
         cts.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("SizeDiffTreemap_WhyKey_OpensPopup: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -307,7 +327,11 @@ public class SizeDiffViewTests : IDisposable
         AssertPopupSurfaceReadable(popupSnapshot!, "Native disassembly");
 
         cts.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("SizeDiffTreemap_DisasmKey_BareMstatPair_ExplainsNoBinary: {0}", handledException);
+        }
     }
 
     // --- Direct logic tests (no terminal) over the same real diff ---
@@ -620,7 +644,8 @@ public class SizeDiffViewTests : IDisposable
         TestSkip.When(
             stringSymbol is null || intSymbol is null,
             "mstat node names not present in the symbol table on this toolchain");
-        Assert.AreNotEqual(stringSymbol!.VirtualAddress, intSymbol!.VirtualAddress);
+        stringSymbol = TestAssert.NotNull(stringSymbol);
+        Assert.AreNotEqual(stringSymbol.VirtualAddress, TestAssert.NotNull(intSymbol).VirtualAddress);
         Assert.EndsWith(greetString.NodeNames[0], stringSymbol.Name);
     }
 

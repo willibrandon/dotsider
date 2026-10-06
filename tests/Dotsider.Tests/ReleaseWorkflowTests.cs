@@ -14,7 +14,7 @@ public class ReleaseWorkflowTests
     [TestMethod]
     public void TraceHostProjectReference_RemovesPublishGlobalProperties()
     {
-        string project = File.ReadAllText(Path.Combine(
+        string project = File.ReadAllText(Path.Join(
             TestHelpers.GetRepoRoot(),
             "src",
             "Dotsider.TraceHost",
@@ -42,7 +42,7 @@ public class ReleaseWorkflowTests
     [TestMethod]
     public void TraceHostPublish_UsesConsumerSpecificBuildDirectories()
     {
-        string targets = File.ReadAllText(Path.Combine(
+        string targets = File.ReadAllText(Path.Join(
             TestHelpers.GetRepoRoot(),
             "build",
             "Dotsider.TraceHost.targets"));
@@ -64,7 +64,7 @@ public class ReleaseWorkflowTests
             "<RemoveDir Directories=\"$(_DotsiderTraceHostBuildDirectory)\" />",
             targets);
 
-        string testProject = File.ReadAllText(Path.Combine(
+        string testProject = File.ReadAllText(Path.Join(
             TestHelpers.GetRepoRoot(),
             "tests",
             "Dotsider.Tests",
@@ -87,7 +87,7 @@ public class ReleaseWorkflowTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void WingetSubmissionCommits_SkipForkPushWorkflowsOnly()
     {
-        var releaseWorkflow = File.ReadAllText(Path.Combine(
+        var releaseWorkflow = File.ReadAllText(Path.Join(
             TestHelpers.GetRepoRoot(),
             ".github",
             "workflows",
@@ -110,10 +110,10 @@ public class ReleaseWorkflowTests
     public void CiIntegrations_KeepReleaseVerificationAndPublicationGates()
     {
         string root = TestHelpers.GetRepoRoot();
-        string release = File.ReadAllText(Path.Combine(root, ".github", "workflows", "release.yml"));
-        string ci = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
-        string action = File.ReadAllText(Path.Combine(root, "action.yml"));
-        string task = File.ReadAllText(Path.Combine(
+        string release = File.ReadAllText(Path.Join(root, ".github", "workflows", "release.yml"));
+        string ci = File.ReadAllText(Path.Join(root, ".github", "workflows", "ci.yml"));
+        string action = File.ReadAllText(Path.Join(root, "action.yml"));
+        string task = File.ReadAllText(Path.Join(
             root, "azure-devops", "tasks", "DotsiderSizeCheckV1", "task.json"));
 
         Assert.Contains("build-ci-integrations:", release);

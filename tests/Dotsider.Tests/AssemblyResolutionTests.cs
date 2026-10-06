@@ -160,12 +160,12 @@ public sealed class AssemblyResolutionTests : IDisposable
         // that does not exist anywhere on the probe path. Place it in an isolated
         // temp directory so AssemblyAnalyzer.ResolveAssembly finds it app-local
         // (step 1 of probing) but cannot find "NonExistent.Target".
-        var dir = Path.Combine(Path.GetTempPath(), "dotsider-chase-broken-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Join(Path.GetTempPath(), "dotsider-chase-broken-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {
-            var referencingPath = Path.Combine(dir, "Ref.dll");
-            var facadePath = Path.Combine(dir, "SyntheticFacade.dll");
+            var referencingPath = Path.Join(dir, "Ref.dll");
+            var facadePath = Path.Join(dir, "SyntheticFacade.dll");
             // The referencing path only needs to exist on disk for Path.GetDirectoryName;
             // its contents are never read by this code path.
             File.WriteAllBytes(referencingPath, []);
@@ -193,7 +193,7 @@ public sealed class AssemblyResolutionTests : IDisposable
     [Timeout(30_000, CooperativeCancellation = true)]
     public void ImplementationAssemblyResolver_AssemblyReferenceWithoutForwarderFlag_HardMisses()
     {
-        var directory = Path.Combine(
+        var directory = Path.Join(
             Path.GetTempPath(),
             "dotsider-invalid-forwarder-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
@@ -202,7 +202,7 @@ public sealed class AssemblyResolutionTests : IDisposable
             var suffix = Guid.NewGuid().ToString("N");
             var facadeName = "InvalidForwarder" + suffix;
             var targetName = "InvalidForwarderTarget" + suffix;
-            var facadePath = Path.Combine(directory, facadeName + ".dll");
+            var facadePath = Path.Join(directory, facadeName + ".dll");
             File.WriteAllBytes(
                 facadePath,
                 BuildSyntheticFacade(
@@ -211,7 +211,7 @@ public sealed class AssemblyResolutionTests : IDisposable
                     targetName,
                     TypeAttributes.Public));
             File.WriteAllBytes(
-                Path.Combine(directory, targetName + ".dll"),
+                Path.Join(directory, targetName + ".dll"),
                 MetadataNestingConsumerMetadata.BuildTargetAssembly(targetName));
 
             var result = ImplementationAssemblyResolver.Resolve(

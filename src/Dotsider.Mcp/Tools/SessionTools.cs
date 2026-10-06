@@ -33,11 +33,15 @@ public sealed partial class SessionTools(DotsiderSessionManager sessionManager, 
                 if (response.Success)
                     results.Add(new DiscoveredSessionPayload(pid, socketPath, response.Data));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Net.Sockets.SocketException or OperationCanceledException or System.Text.Json.JsonException)
             {
                 // Unreachable socket — stale file from a crashed instance. Clean it up.
                 LogStaleSocket(logger, ex, pid, socketPath);
-                try { File.Delete(socketPath); } catch { }
+                try { File.Delete(socketPath); }
+                catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+                {
+                    System.Diagnostics.Trace.TraceInformation("DiscoverDotsiderSessions: {0}", handledException);
+                }
             }
         }
 

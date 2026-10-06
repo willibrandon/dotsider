@@ -409,15 +409,15 @@ internal class SampleAssemblyFixture
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            NetFxConsoleExe = Path.Combine(_repoRoot, "samples", "NetFxConsole",
+            NetFxConsoleExe = Path.Join(_repoRoot, "samples", "NetFxConsole",
                 "bin", config, "net48", "NetFxConsole.exe");
 
-            NetFxBindingRedirectsExe = Path.Combine(_repoRoot, "samples", "NetFxBindingRedirects",
+            NetFxBindingRedirectsExe = Path.Join(_repoRoot, "samples", "NetFxBindingRedirects",
                 "bin", config, "net48", "NetFxBindingRedirects.exe");
 
             NetFxBindingRedirectsOracle = await CaptureNetFxOracleAsync(NetFxBindingRedirectsExe);
 
-            NetFxBindingRedirectsClr2Exe = Path.Combine(_repoRoot, "samples", "NetFxBindingRedirects.Clr2",
+            NetFxBindingRedirectsClr2Exe = Path.Join(_repoRoot, "samples", "NetFxBindingRedirects.Clr2",
                 "bin", config, "net35", "NetFxBindingRedirects.Clr2.exe");
 
             // CLR 2 runtime detection: arch-aware. Either Framework64 or Framework slot may host
@@ -427,8 +427,8 @@ internal class SampleAssemblyFixture
             if (!string.IsNullOrEmpty(windir))
             {
                 Clr2RuntimePresent =
-                    File.Exists(Path.Combine(windir!, "Microsoft.NET", "Framework64", "v2.0.50727", "mscorlib.dll"))
-                    || File.Exists(Path.Combine(windir!, "Microsoft.NET", "Framework", "v2.0.50727", "mscorlib.dll"));
+                    File.Exists(Path.Join(windir!, "Microsoft.NET", "Framework64", "v2.0.50727", "mscorlib.dll"))
+                    || File.Exists(Path.Join(windir!, "Microsoft.NET", "Framework", "v2.0.50727", "mscorlib.dll"));
             }
 
             // Run the runtime oracle only when CLR 2 is installed; otherwise the EXE either
@@ -439,111 +439,111 @@ internal class SampleAssemblyFixture
         }
 
         var rid = RuntimeInformation.RuntimeIdentifier;
-        NativeAotConsoleExe = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
+        NativeAotConsoleExe = Path.Join(_repoRoot, "samples", "NativeAotConsole",
             "bin", releaseConfig, tfm, rid, "publish", $"NativeAotConsole{apphostExt}");
 
         // ILC sidecars copied next to the exe by the sample's publish target. Null when the
         // toolchain did not produce them, so sidecar tests skip rather than fail.
         var aotPublishDir = Path.GetDirectoryName(NativeAotConsoleExe)!;
-        NativeAotConsoleMstat = ExistingPathOrNull(Path.Combine(aotPublishDir, "NativeAotConsole.mstat"));
+        NativeAotConsoleMstat = ExistingPathOrNull(Path.Join(aotPublishDir, "NativeAotConsole.mstat"));
         NativeAotConsoleDgml =
-            ExistingPathOrNull(Path.Combine(aotPublishDir, "NativeAotConsole.codegen.dgml.xml"))
-            ?? ExistingPathOrNull(Path.Combine(aotPublishDir, "NativeAotConsole.scan.dgml.xml"));
+            ExistingPathOrNull(Path.Join(aotPublishDir, "NativeAotConsole.codegen.dgml.xml"))
+            ?? ExistingPathOrNull(Path.Join(aotPublishDir, "NativeAotConsole.scan.dgml.xml"));
 
         // Native symbols land beside the exe per platform: PDB (Windows), .dbg (Linux), or the
         // DWARF file inside the dSYM bundle (macOS).
         NativeAotConsoleSymbols =
-            ExistingPathOrNull(Path.Combine(aotPublishDir, "NativeAotConsole.pdb"))
-            ?? ExistingPathOrNull(Path.Combine(aotPublishDir, "NativeAotConsole.dbg"))
-            ?? ExistingPathOrNull(Path.Combine(
+            ExistingPathOrNull(Path.Join(aotPublishDir, "NativeAotConsole.pdb"))
+            ?? ExistingPathOrNull(Path.Join(aotPublishDir, "NativeAotConsole.dbg"))
+            ?? ExistingPathOrNull(Path.Join(
                 aotPublishDir, "NativeAotConsole.dSYM", "Contents", "Resources", "DWARF", "NativeAotConsole"));
 
-        NativeAotConsoleDsym = ExistingDirOrNull(Path.Combine(aotPublishDir, "NativeAotConsole.dSYM"));
+        NativeAotConsoleDsym = ExistingDirOrNull(Path.Join(aotPublishDir, "NativeAotConsole.dSYM"));
 
         // The pre-ILC inputs stay in the intermediate tree — the sidecar probe's territory.
-        var aotObjDir = Path.Combine(_repoRoot, "samples", "NativeAotConsole",
+        var aotObjDir = Path.Join(_repoRoot, "samples", "NativeAotConsole",
             "obj", releaseConfig, tfm, rid);
-        NativeAotConsoleManagedDll = ExistingPathOrNull(Path.Combine(aotObjDir, "NativeAotConsole.dll"));
-        NativeAotConsoleManagedPdb = ExistingPathOrNull(Path.Combine(aotObjDir, "NativeAotConsole.pdb"));
+        NativeAotConsoleManagedDll = ExistingPathOrNull(Path.Join(aotObjDir, "NativeAotConsole.dll"));
+        NativeAotConsoleManagedPdb = ExistingPathOrNull(Path.Join(aotObjDir, "NativeAotConsole.pdb"));
         NativeAotConsoleIlcRsp = ExistingPathOrNull(
-            Path.Combine(aotObjDir, "native", "NativeAotConsole.ilc.rsp"));
+            Path.Join(aotObjDir, "native", "NativeAotConsole.ilc.rsp"));
 
         // V2 of the AOT sample: same AssemblyName, so the publish output is also named
         // NativeAotConsole — the project folder is what tells the two builds apart.
-        var aotV2PublishDir = Path.Combine(_repoRoot, "samples", "NativeAotConsoleV2",
+        var aotV2PublishDir = Path.Join(_repoRoot, "samples", "NativeAotConsoleV2",
             "bin", releaseConfig, tfm, rid, "publish");
         NativeAotConsoleV2Exe = ExistingPathOrNull(
-            Path.Combine(aotV2PublishDir, $"NativeAotConsole{apphostExt}"));
+            Path.Join(aotV2PublishDir, $"NativeAotConsole{apphostExt}"));
         NativeAotConsoleV2Mstat = ExistingPathOrNull(
-            Path.Combine(aotV2PublishDir, "NativeAotConsole.mstat"));
+            Path.Join(aotV2PublishDir, "NativeAotConsole.mstat"));
         NativeAotConsoleV2Dgml =
-            ExistingPathOrNull(Path.Combine(aotV2PublishDir, "NativeAotConsole.codegen.dgml.xml"))
-            ?? ExistingPathOrNull(Path.Combine(aotV2PublishDir, "NativeAotConsole.scan.dgml.xml"));
+            ExistingPathOrNull(Path.Join(aotV2PublishDir, "NativeAotConsole.codegen.dgml.xml"))
+            ?? ExistingPathOrNull(Path.Join(aotV2PublishDir, "NativeAotConsole.scan.dgml.xml"));
 
         // Artifacts-layout pivot names are SDK-internal; glob for the exe instead of parsing.
         NativeAotArtifactsExe = FindArtifactsPublishOutput(
             "NativeAotArtifactsConsole", $"NativeAotArtifactsConsole{apphostExt}");
 
-        var libPublishDir = Path.Combine(_repoRoot, "samples", "NativeAotLibrary",
+        var libPublishDir = Path.Join(_repoRoot, "samples", "NativeAotLibrary",
             "bin", releaseConfig, tfm, rid, "publish");
         NativeAotLibraryBinary =
-            ExistingPathOrNull(Path.Combine(libPublishDir, "NativeAotLibrary.dll"))
-            ?? ExistingPathOrNull(Path.Combine(libPublishDir, "NativeAotLibrary.so"))
-            ?? ExistingPathOrNull(Path.Combine(libPublishDir, "NativeAotLibrary.dylib"));
+            ExistingPathOrNull(Path.Join(libPublishDir, "NativeAotLibrary.dll"))
+            ?? ExistingPathOrNull(Path.Join(libPublishDir, "NativeAotLibrary.so"))
+            ?? ExistingPathOrNull(Path.Join(libPublishDir, "NativeAotLibrary.dylib"));
 
-        HardwareIntrinsicsExe = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "HardwareIntrinsics",
+        HardwareIntrinsicsExe = ExistingPathOrNull(Path.Join(_repoRoot, "samples", "HardwareIntrinsics",
             "bin", releaseConfig, tfm, rid, "publish", $"HardwareIntrinsics{apphostExt}"));
 
-        SelfContainedConsoleExe = Path.Combine(_repoRoot, "samples", "SelfContainedConsole",
+        SelfContainedConsoleExe = Path.Join(_repoRoot, "samples", "SelfContainedConsole",
             "bin", releaseConfig, tfm, rid, "publish", $"SelfContainedConsole{apphostExt}");
 
         // ReadyToRun publish outputs. Null when crossgen2 did not run for this RID, so R2R tests skip.
-        var r2rConsoleDir = Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
+        var r2rConsoleDir = Path.Join(_repoRoot, "samples", "ReadyToRunConsole",
             "bin", releaseConfig, tfm, rid, "publish");
         ReadyToRunConsoleDll = ExistingReadyToRunPathOrNull(
-            Path.Combine(r2rConsoleDir, "ReadyToRunConsole.dll"));
-        ReadyToRunConsoleExe = ExistingPathOrNull(Path.Combine(r2rConsoleDir, $"ReadyToRunConsole{apphostExt}"));
-        ReadyToRunConsoleX86Dll = ExistingReadyToRunPathOrNull(Path.Combine(
+            Path.Join(r2rConsoleDir, "ReadyToRunConsole.dll"));
+        ReadyToRunConsoleExe = ExistingPathOrNull(Path.Join(r2rConsoleDir, $"ReadyToRunConsole{apphostExt}"));
+        ReadyToRunConsoleX86Dll = ExistingReadyToRunPathOrNull(Path.Join(
             _repoRoot, "samples", "ReadyToRunConsole", "bin", releaseConfig,
             tfm, "win-x86", "publish", "ReadyToRunConsole.dll"));
-        ReadyToRunConsoleArm32Dll = ExistingReadyToRunPathOrNull(Path.Combine(
+        ReadyToRunConsoleArm32Dll = ExistingReadyToRunPathOrNull(Path.Join(
             _repoRoot, "samples", "ReadyToRunConsole", "bin", releaseConfig,
             tfm, "linux-arm", "publish", "ReadyToRunConsole.dll"));
-        ReadyToRunConsoleRiscV64Dll = ExistingReadyToRunPathOrNull(Path.Combine(
+        ReadyToRunConsoleRiscV64Dll = ExistingReadyToRunPathOrNull(Path.Join(
             _repoRoot, "samples", "ReadyToRunConsole", "bin", releaseConfig,
             tfm, "linux-riscv64", "publish", "ReadyToRunConsole.dll"));
-        ReadyToRunConsoleLoongArch64Dll = ExistingReadyToRunPathOrNull(Path.Combine(
+        ReadyToRunConsoleLoongArch64Dll = ExistingReadyToRunPathOrNull(Path.Join(
             _repoRoot, "samples", "ReadyToRunConsole", "bin", releaseConfig,
             tfm, "linux-loongarch64", "publish", "ReadyToRunConsole.dll"));
-        ReadyToRunConsoleWasmNativeWasm = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "ReadyToRunConsole",
+        ReadyToRunConsoleWasmNativeWasm = ExistingPathOrNull(Path.Join(_repoRoot, "samples", "ReadyToRunConsole",
             "bin", releaseConfig, tfm, "browser-wasm", "publish", "dotnet.native.wasm"));
-        WasmConsoleNativeWasm = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "WasmConsole",
+        WasmConsoleNativeWasm = ExistingPathOrNull(Path.Join(_repoRoot, "samples", "WasmConsole",
             "bin", releaseConfig, tfm, "browser-wasm", "publish", "dotnet.native.wasm"));
-        WasmConsoleAotNativeWasm = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "WasmConsole",
+        WasmConsoleAotNativeWasm = ExistingPathOrNull(Path.Join(_repoRoot, "samples", "WasmConsole",
             "bin", releaseConfig, tfm, "browser-wasm-aot", "publish", "dotnet.native.wasm"));
-        WasmConsoleWebcilWasm = ExistingPathOrNull(Path.Combine(_repoRoot, "samples", "WasmConsole",
+        WasmConsoleWebcilWasm = ExistingPathOrNull(Path.Join(_repoRoot, "samples", "WasmConsole",
             "bin", releaseConfig, tfm, "browser-wasm", "AppBundle", "_framework", "WasmConsole.wasm"));
 
-        var r2rCompositeDir = Path.Combine(_repoRoot, "samples", "ReadyToRunComposite",
+        var r2rCompositeDir = Path.Join(_repoRoot, "samples", "ReadyToRunComposite",
             "bin", releaseConfig, tfm, rid, "publish");
         ReadyToRunCompositeImage = ExistingReadyToRunPathOrNull(
-            Path.Combine(r2rCompositeDir, "ReadyToRunComposite.r2r.dll"));
+            Path.Join(r2rCompositeDir, "ReadyToRunComposite.r2r.dll"));
         ReadyToRunCompositeComponent = ReadyToRunCompositeImage is null
             ? null
-            : ExistingReadyToRunPathOrNull(Path.Combine(r2rCompositeDir, "ReadyToRunComposite.dll"));
+            : ExistingReadyToRunPathOrNull(Path.Join(r2rCompositeDir, "ReadyToRunComposite.dll"));
         ReadyToRunComponentLibDll = ReadyToRunCompositeImage is null
             ? null
-            : ExistingReadyToRunPathOrNull(Path.Combine(r2rCompositeDir, "ReadyToRunComponentLib.dll"));
+            : ExistingReadyToRunPathOrNull(Path.Join(r2rCompositeDir, "ReadyToRunComponentLib.dll"));
         if (ReadyToRunCompositeComponent is not null)
             ReadyToRunCompositeComponentMvid = ReadModuleMvid(ReadyToRunCompositeComponent);
         if (ReadyToRunComponentLibDll is not null)
             ReadyToRunComponentLibMvid = ReadModuleMvid(ReadyToRunComponentLibDll);
 
-        RichLibraryNupkg = Path.Combine(_repoRoot, "samples", "RichLibrary",
+        RichLibraryNupkg = Path.Join(_repoRoot, "samples", "RichLibrary",
             "bin", config, "RichLibrary.2.5.1.nupkg");
 
         // Create non-.NET binary for BadImageFormatException testing
-        NonDotNetBinaryPath = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}.bin");
+        NonDotNetBinaryPath = Path.Join(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}.bin");
         File.WriteAllBytes(NonDotNetBinaryPath, [0xDE, 0xAD, 0xBE, 0xEF]);
 
         // Verify critical paths exist
@@ -555,9 +555,9 @@ internal class SampleAssemblyFixture
         Assert.IsTrue(File.Exists(AppLocalRollForwardDll),
             $"AppLocalRollForward.dll not found at {AppLocalRollForwardDll}");
         var rollForwardBin = Path.GetDirectoryName(AppLocalRollForwardDll)!;
-        Assert.IsTrue(File.Exists(Path.Combine(rollForwardBin, "Microsoft.Diagnostics.NETCore.Client.dll")),
+        Assert.IsTrue(File.Exists(Path.Join(rollForwardBin, "Microsoft.Diagnostics.NETCore.Client.dll")),
             "AppLocalRollForward must deploy NETCore.Client.dll app-local for the roll-forward probe");
-        Assert.IsTrue(File.Exists(Path.Combine(rollForwardBin, "Microsoft.Diagnostics.Tracing.TraceEvent.dll")),
+        Assert.IsTrue(File.Exists(Path.Join(rollForwardBin, "Microsoft.Diagnostics.Tracing.TraceEvent.dll")),
             "AppLocalRollForward must deploy TraceEvent.dll app-local for its stale AssemblyRef to drive the test");
         if (NetFxConsoleExe is not null)
             Assert.IsTrue(File.Exists(NetFxConsoleExe), $"NetFxConsole.exe not found at {NetFxConsoleExe}");
@@ -566,14 +566,19 @@ internal class SampleAssemblyFixture
             Assert.IsTrue(File.Exists(NetFxBindingRedirectsExe),
                 $"NetFxBindingRedirects.exe not found at {NetFxBindingRedirectsExe}");
             var binDir = Path.GetDirectoryName(NetFxBindingRedirectsExe)!;
-            Assert.IsTrue(File.Exists(Path.Combine(binDir, "NetFxBindingRedirects.exe.config")),
+            Assert.IsTrue(File.Exists(Path.Join(binDir, "NetFxBindingRedirects.exe.config")),
                 "NetFxBindingRedirects.exe.config missing — app.config did not deploy");
-            Assert.IsTrue(Directory.Exists(Path.Combine(binDir, "lib")),
+            Assert.IsTrue(Directory.Exists(Path.Join(binDir, "lib")),
                 "lib/ subdir missing — privatePath helper did not deploy");
-            Assert.IsTrue(Directory.Exists(Path.Combine(binDir, "external")),
+            Assert.IsTrue(Directory.Exists(Path.Join(binDir, "external")),
                 "external/ subdir missing — codeBase helper did not deploy");
-            Assert.IsTrue(Directory.Exists(Path.Combine(binDir, "fr")),
+            Assert.IsTrue(Directory.Exists(Path.Join(binDir, "fr")),
                 "fr/ subdir missing — culture satellite did not deploy");
+            var sharedDep = Path.Join(binDir, "NetFxBindingRedirects.Clr2.SharedDep.dll");
+            var sharedVersion = System.Reflection.AssemblyName.GetAssemblyName(sharedDep).Version
+                ?? throw new AssertFailedException("SharedDep has no assembly version.");
+            Assert.AreEqual("2.0.0.0", sharedVersion.ToString(),
+                "The redirect target must be the v2 fixture, never the compile-time v1 dependency.");
             Assert.IsNotNull(NetFxBindingRedirectsOracle);
         }
         if (NetFxBindingRedirectsClr2Exe is not null)
@@ -581,20 +586,20 @@ internal class SampleAssemblyFixture
             Assert.IsTrue(File.Exists(NetFxBindingRedirectsClr2Exe),
                 $"NetFxBindingRedirects.Clr2.exe not found at {NetFxBindingRedirectsClr2Exe}");
             var binDir = Path.GetDirectoryName(NetFxBindingRedirectsClr2Exe)!;
-            Assert.IsTrue(File.Exists(Path.Combine(binDir, "NetFxBindingRedirects.Clr2.exe.config")),
+            Assert.IsTrue(File.Exists(Path.Join(binDir, "NetFxBindingRedirects.Clr2.exe.config")),
                 "NetFxBindingRedirects.Clr2.exe.config missing — app.config did not deploy");
-            Assert.IsTrue(Directory.Exists(Path.Combine(binDir, "lib")),
+            Assert.IsTrue(Directory.Exists(Path.Join(binDir, "lib")),
                 "lib/ subdir missing — Clr2 privatePath helper did not deploy");
-            Assert.IsTrue(Directory.Exists(Path.Combine(binDir, "external")),
+            Assert.IsTrue(Directory.Exists(Path.Join(binDir, "external")),
                 "external/ subdir missing — Clr2 codeBase helper did not deploy");
-            Assert.IsTrue(Directory.Exists(Path.Combine(binDir, "fr")),
+            Assert.IsTrue(Directory.Exists(Path.Join(binDir, "fr")),
                 "fr/ subdir missing — Clr2 culture satellite did not deploy");
 
             // Identity-based copy-local guard: V1 and V2 emit the same filename, so a path
             // check can't disambiguate. Reject silently re-introduced V1 by reading the staged
             // assembly's version. The redirect collapses on V2; any other value means the
             // wrong build leaked app-local through the project graph.
-            var stagedSharedDep = Path.Combine(binDir, "NetFxBindingRedirects.Clr2.SharedDep.dll");
+            var stagedSharedDep = Path.Join(binDir, "NetFxBindingRedirects.Clr2.SharedDep.dll");
             Assert.IsTrue(File.Exists(stagedSharedDep),
                 $"SharedDep V2 was not staged app-local at {stagedSharedDep}");
             var stagedVersion = System.Reflection.AssemblyName.GetAssemblyName(stagedSharedDep).Version?.ToString();
@@ -619,7 +624,7 @@ internal class SampleAssemblyFixture
         if (File.Exists(NonDotNetBinaryPath))
         {
             try { File.Delete(NonDotNetBinaryPath); }
-            catch { /* best effort */ }
+            catch (Exception caughtException) when (caughtException is System.IO.IOException or UnauthorizedAccessException) { /* best effort */ }
         }
         return ValueTask.CompletedTask;
     }
@@ -627,15 +632,14 @@ internal class SampleAssemblyFixture
     private string? FindArtifactsPublishOutput(string project, string fileName)
     {
         var artifactsDirectory = TestProcessEnvironment.IsDevelopmentContainer
-            ? Path.Combine("artifacts", "devcontainer")
+            ? Path.Join("artifacts", "devcontainer")
             : "artifacts";
-        var publishRoot = Path.Combine(
+        var publishRoot = Path.Join(
             _repoRoot, "samples", project, artifactsDirectory, "publish", project);
         if (!Directory.Exists(publishRoot)) return null;
 
-        foreach (var pivotDir in Directory.GetDirectories(publishRoot))
+        foreach (var candidate in Directory.GetDirectories(publishRoot).Select(pivotDir => Path.Join(pivotDir, fileName)))
         {
-            var candidate = Path.Combine(pivotDir, fileName);
             if (File.Exists(candidate)) return candidate;
         }
 
@@ -643,7 +647,7 @@ internal class SampleAssemblyFixture
     }
 
     private string SamplePath(string project, string config, string tfm, string file)
-        => Path.Combine(_repoRoot, "samples", project, "bin", config, tfm, file);
+        => Path.Join(_repoRoot, "samples", project, "bin", config, tfm, file);
 
     private static string? ExistingPathOrNull(string path)
         => File.Exists(path) ? path : null;
@@ -682,7 +686,7 @@ internal class SampleAssemblyFixture
         var assemblyName = projectName.Equals("NativeAotConsoleV2", StringComparison.Ordinal)
             ? "NativeAotConsole"
             : projectName;
-        var publishDirectory = Path.Combine(
+        var publishDirectory = Path.Join(
             _repoRoot,
             relativePath,
             "bin",
@@ -691,10 +695,10 @@ internal class SampleAssemblyFixture
             RuntimeInformation.RuntimeIdentifier,
             "publish");
         var apphostExtension = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
-        var expectedOutput = Path.Combine(publishDirectory, $"{assemblyName}{apphostExtension}");
-        var expectedMstat = Path.Combine(publishDirectory, $"{assemblyName}.mstat");
+        var expectedOutput = Path.Join(publishDirectory, $"{assemblyName}{apphostExtension}");
+        var expectedMstat = Path.Join(publishDirectory, $"{assemblyName}.mstat");
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
-        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+        var lockPath = Path.Join(Path.GetTempPath(), lockName);
 
         FileStream lockFile;
         while (true)
@@ -710,12 +714,12 @@ internal class SampleAssemblyFixture
             }
         }
 
-        try
+        using (lockFile)
         {
             var sharesOutputWithMcpTests =
                 projectName.Equals("NativeAotConsole", StringComparison.Ordinal) ||
                 projectName.Equals("NativeAotConsoleV2", StringComparison.Ordinal);
-            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            var projectDirectory = Path.Join(_repoRoot, relativePath);
             if (sharesOutputWithMcpTests &&
                 TestProcessEnvironment.IsFixtureOutputCurrent(
                     expectedOutput,
@@ -763,10 +767,6 @@ internal class SampleAssemblyFixture
                 throw new InvalidOperationException(
                     $"dotnet publish failed for {relativePath} (exit {process.ExitCode}):\n{stdout}\n{stderr}");
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     /// <summary>
@@ -779,7 +779,7 @@ internal class SampleAssemblyFixture
     private async Task PublishReadyToRunProject(string relativePath, string rid, bool selfContained)
     {
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
-        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+        var lockPath = Path.Join(Path.GetTempPath(), lockName);
 
         FileStream lockFile;
         while (true)
@@ -795,14 +795,14 @@ internal class SampleAssemblyFixture
             }
         }
 
-        try
+        using (lockFile)
         {
-            var projectDir = Path.Combine(_repoRoot, relativePath);
+            var projectDir = Path.Join(_repoRoot, relativePath);
             var projectName = Path.GetFileName(projectDir);
             var imageName = projectName.Equals("ReadyToRunComposite", StringComparison.Ordinal)
                 ? $"{projectName}.r2r.dll"
                 : $"{projectName}.dll";
-            var imagePath = Path.Combine(
+            var imagePath = Path.Join(
                 projectDir,
                 "bin",
                 TestProcessEnvironment.ReleaseBuildConfiguration,
@@ -839,10 +839,6 @@ internal class SampleAssemblyFixture
                 File.Delete(imagePath);
             // A non-zero exit means crossgen2 is unavailable for this RID; leave the outputs absent.
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     /// <summary>
@@ -854,10 +850,10 @@ internal class SampleAssemblyFixture
     {
         var wasmRid = runAotCompilation ? "browser-wasm-aot" : "browser-wasm";
         var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
-        var expectedOutput = Path.Combine(_repoRoot, relativePath,
+        var expectedOutput = Path.Join(_repoRoot, relativePath,
             "bin", configuration, "net10.0", wasmRid, "publish", "dotnet.native.wasm");
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + $"-{wasmRid}.lock";
-        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+        var lockPath = Path.Join(Path.GetTempPath(), lockName);
 
         FileStream lockFile;
         while (true)
@@ -873,9 +869,9 @@ internal class SampleAssemblyFixture
             }
         }
 
-        try
+        using (lockFile)
         {
-            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            var projectDirectory = Path.Join(_repoRoot, relativePath);
             if (TestProcessEnvironment.IsFixtureOutputCurrent(
                 expectedOutput,
                 projectDirectory,
@@ -910,10 +906,6 @@ internal class SampleAssemblyFixture
             await process.WaitForExitAsync();
             // A non-zero exit means wasm-tools is unavailable; leave the outputs absent.
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     private static Guid ReadModuleMvid(string path)
@@ -927,7 +919,7 @@ internal class SampleAssemblyFixture
     {
         var projectName = Path.GetFileName(relativePath);
         var apphostExtension = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
-        var expectedOutput = Path.Combine(
+        var expectedOutput = Path.Join(
             _repoRoot,
             relativePath,
             "bin",
@@ -937,7 +929,7 @@ internal class SampleAssemblyFixture
             "publish",
             $"{projectName}{apphostExtension}");
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
-        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+        var lockPath = Path.Join(Path.GetTempPath(), lockName);
 
         FileStream lockFile;
         while (true)
@@ -953,9 +945,9 @@ internal class SampleAssemblyFixture
             }
         }
 
-        try
+        using (lockFile)
         {
-            var projectDirectory = Path.Combine(_repoRoot, relativePath);
+            var projectDirectory = Path.Join(_repoRoot, relativePath);
             if (Dotsider.Core.Analysis.SingleFileBundleReader.IsBundle(expectedOutput, out _) &&
                 TestProcessEnvironment.IsFixtureOutputCurrent(
                     expectedOutput,
@@ -987,10 +979,6 @@ internal class SampleAssemblyFixture
                 throw new InvalidOperationException(
                     $"dotnet publish failed for {relativePath} (exit {process.ExitCode}):\n{stdout}\n{stderr}");
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     private async Task BuildProject(string relativePath)
@@ -999,7 +987,7 @@ internal class SampleAssemblyFixture
         // across test assemblies (e.g. Dotsider.Tests and Dotsider.Mcp.Tests).
         // File locks are cross-platform, unlike named Mutex/Semaphore.
         var lockName = "dotsider-build-" + relativePath.Replace('/', '-').Replace('\\', '-') + ".lock";
-        var lockPath = Path.Combine(Path.GetTempPath(), lockName);
+        var lockPath = Path.Join(Path.GetTempPath(), lockName);
 
         FileStream lockFile;
         while (true)
@@ -1015,14 +1003,14 @@ internal class SampleAssemblyFixture
             }
         }
 
-        try
+        using (lockFile)
         {
-            var projectDir = Path.Combine(_repoRoot, relativePath);
+            var projectDir = Path.Join(_repoRoot, relativePath);
             var projectName = Path.GetFileName(projectDir);
             var assemblyName = projectName.Equals("RichLibraryV2", StringComparison.Ordinal)
                 ? "RichLibrary"
                 : projectName;
-            var expectedOutput = Path.Combine(
+            var expectedOutput = Path.Join(
                 projectDir,
                 "bin",
                 TestProcessEnvironment.DebugBuildConfiguration,
@@ -1056,10 +1044,6 @@ internal class SampleAssemblyFixture
                 throw new InvalidOperationException(
                     $"dotnet build failed for {relativePath} (exit {process.ExitCode}):\n{stdout}\n{stderr}");
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     /// <summary>
@@ -1071,7 +1055,7 @@ internal class SampleAssemblyFixture
     /// <returns>The parsed oracle map.</returns>
     private static async Task<IReadOnlyDictionary<string, NetFxOracleEntry>> CaptureNetFxOracleAsync(string exePath)
     {
-        var oraclePath = Path.Combine(Path.GetTempPath(),
+        var oraclePath = Path.Join(Path.GetTempPath(),
             $"netfx-binder-oracle-{Guid.NewGuid():N}.json");
         try
         {
@@ -1109,7 +1093,7 @@ internal class SampleAssemblyFixture
         }
         finally
         {
-            try { File.Delete(oraclePath); } catch { /* best effort */ }
+            try { File.Delete(oraclePath); } catch (Exception caughtException) when (caughtException is System.IO.IOException or UnauthorizedAccessException) { /* best effort */ }
         }
     }
 }

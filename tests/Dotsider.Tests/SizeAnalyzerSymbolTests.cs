@@ -150,7 +150,7 @@ public class SizeAnalyzerSymbolTests
         var dir = Directory.CreateTempSubdirectory("dotsider-sizesym-");
         try
         {
-            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            var exeCopy = Path.Join(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
             File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
             CopySymbolsBeside(Samples.NativeAotConsoleExe!, Samples.NativeAotConsoleSymbols!, dir.FullName);
 
@@ -186,13 +186,13 @@ public class SizeAnalyzerSymbolTests
         if (symbolsPath.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase)
             || symbolsPath.EndsWith(".dbg", StringComparison.OrdinalIgnoreCase))
         {
-            File.Copy(symbolsPath, Path.Combine(targetDir, Path.GetFileName(symbolsPath)));
+            File.Copy(symbolsPath, Path.Join(targetDir, Path.GetFileName(symbolsPath)));
             return;
         }
 
         // macOS: recreate the dSYM bundle's DWARF path relative to the exe.
         var relative = Path.GetRelativePath(exeDir, symbolsPath);
-        var target = Path.Combine(targetDir, relative);
+        var target = Path.Join(targetDir, relative);
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         File.Copy(symbolsPath, target);
     }

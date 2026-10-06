@@ -338,7 +338,8 @@ public class SizeMapViewTests : IDisposable
 
         // Drive selection to a node-named leaf deterministically: focus the Frozen Objects
         // category (string literals always join the graph) and select its largest entry.
-        var frozen = _state!.CachedSizeTree!.Children.First(c => c.Name == "Frozen Objects");
+        _state = TestAssert.NotNull(_state);
+        var frozen = TestAssert.NotNull(_state.CachedSizeTree).Children.First(c => c.Name == "Frozen Objects");
         _state.TreemapBreadcrumb.Push(_state.CachedSizeTree!);
         _state.TreemapCurrentLevel = frozen;
         _state.TreemapSelectedIndex = 0;
@@ -370,10 +371,10 @@ public class SizeMapViewTests : IDisposable
 
         var dir = Directory.CreateTempSubdirectory("dotsider-whynodgml-");
         var name = Path.GetFileName(Samples.NativeAotConsoleExe!);
-        var exeCopy = Path.Combine(dir.FullName, name);
+        var exeCopy = Path.Join(dir.FullName, name);
         File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
         var stem = name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
-        File.Copy(Samples.NativeAotConsoleMstat!, Path.Combine(dir.FullName, stem + ".mstat"));
+        File.Copy(Samples.NativeAotConsoleMstat!, Path.Join(dir.FullName, stem + ".mstat"));
 
         var (terminal, app) = CreateDotsiderApp(exeCopy);
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
@@ -387,7 +388,8 @@ public class SizeMapViewTests : IDisposable
             await auto.WaitUntilAsync(_ => _state?.CachedSizeTree is not null,
                 description: "size tree to build");
 
-            var frozen = _state!.CachedSizeTree!.Children.First(c => c.Name == "Frozen Objects");
+            _state = TestAssert.NotNull(_state);
+            var frozen = TestAssert.NotNull(_state.CachedSizeTree).Children.First(c => c.Name == "Frozen Objects");
             _state.TreemapBreadcrumb.Push(_state.CachedSizeTree!);
             _state.TreemapCurrentLevel = frozen;
             _state.TreemapSelectedIndex = 0;
@@ -403,9 +405,15 @@ public class SizeMapViewTests : IDisposable
             // Stop the app and release the analyzer's handle on the copied exe before the
             // directory delete, on both the success and failure paths.
             cts.Cancel();
-            try { await runTask; } catch (OperationCanceledException) { }
-            _state?.Dispose();
-            _state = null;
+            try { await runTask; }
+            catch (OperationCanceledException handledException)
+            {
+                System.Diagnostics.Trace.TraceInformation("SizeMap_NativeAot_WhyKeyWithoutDgml_ExplainsMissingGraph: {0}", handledException);
+            }
+            using (_state)
+            {
+                _state = null;
+            }
             dir.Delete(recursive: true);
         }
     }

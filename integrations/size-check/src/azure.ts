@@ -18,9 +18,11 @@ async function main(): Promise<void> {
   let dotsiderVersion = "";
   let errorOutputs = createErrorOutputs(artifactName, dotsiderVersion);
   try {
-    const defaultRoot = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY
-      || process.env.AGENT_TEMPDIRECTORY
-      || os.tmpdir();
+    const reportDirectory = getInput("reportDirectory")?.trim();
+    const defaultRoot = reportDirectory || await fs.mkdtemp(path.join(
+      process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || process.env.AGENT_TEMPDIRECTORY || os.tmpdir(),
+      "dotsider-size-check-",
+    ));
     let inputs = createInputs({
       target: getInput("target"),
       baseline: getInput("baseline"),
@@ -31,7 +33,7 @@ async function main(): Promise<void> {
       why: getInput("why"),
       dotsiderVersion: getInput("dotsiderVersion"),
       dotsiderPath: getInput("dotsiderPath"),
-      reportDirectory: getInput("reportDirectory"),
+      reportDirectory,
       publishSummary: getInput("publishSummary"),
       publishReports: getInput("publishReports"),
       artifactName: getInput("artifactName"),
@@ -95,11 +97,10 @@ async function main(): Promise<void> {
     }
     if (discovery.publish && execution.report
       && (execution.result === "passed" || execution.result === "passed-with-warnings")) {
-      const baselineDirectory = path.join(
+      const baselineDirectory = await fs.mkdtemp(path.join(
         process.env.AGENT_TEMPDIRECTORY || os.tmpdir(),
-        "dotsider-baseline-upload",
-        discovery.artifactName,
-      );
+        "dotsider-baseline-upload-",
+      ));
       await stageBaseline(
         execution.report,
         discovery.identity,

@@ -16,7 +16,6 @@
     <RootNamespace>NetFxBindingRedirects.Clr2.UsesSharedV1</RootNamespace>
     <AssemblyName>NetFxBindingRedirects.Clr2.UsesSharedV1</AssemblyName>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
-    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />

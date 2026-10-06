@@ -225,18 +225,15 @@ public sealed class DotsiderHexRenderer(DotsiderState state) : IEditorViewRender
                     : Math.Max(0, totalBytes - 1);
             }
 
-            foreach (var cursor in state.Cursors)
+            foreach (var cursor in state.Cursors.Where(cursor => cursor.HasSelection))
             {
-                if (cursor.HasSelection)
-                {
-                    var selStart = Math.Min(cursor.SelectionStart.Value, byteMap.CharCount);
-                    var selEnd = Math.Min(cursor.SelectionEnd.Value, byteMap.CharCount);
-                    var startByte = selStart < byteMap.CharCount
-                        ? byteMap.CharToByteStart(selStart) : totalBytes;
-                    var endByte = selEnd < byteMap.CharCount
-                        ? byteMap.CharToByteStart(selEnd) : totalBytes;
-                    selectionRanges.Add((startByte, endByte));
-                }
+                var selStart = Math.Min(cursor.SelectionStart.Value, byteMap.CharCount);
+                var selEnd = Math.Min(cursor.SelectionEnd.Value, byteMap.CharCount);
+                var startByte = selStart < byteMap.CharCount
+                    ? byteMap.CharToByteStart(selStart) : totalBytes;
+                var endByte = selEnd < byteMap.CharCount
+                    ? byteMap.CharToByteStart(selEnd) : totalBytes;
+                selectionRanges.Add((startByte, endByte));
             }
         }
 

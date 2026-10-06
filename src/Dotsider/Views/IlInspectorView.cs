@@ -412,10 +412,10 @@ public static class IlInspectorView
 
             if (!nsExpanded) continue;
 
-            foreach (var typeDef in nsTypes)
+            foreach (var (typeDef, methods) in nsTypes
+                         .Select(type => (Type: type, Methods: methodsByType.GetValueOrDefault(type.FullName) ?? []))
+                         .Where(entry => entry.Methods.Count > 0))
             {
-                if (!methodsByType.TryGetValue(typeDef.FullName, out var methods))
-                    continue;
 
                 var filteredMethods = methods;
                 if (!string.IsNullOrEmpty(searchQuery))
@@ -472,10 +472,8 @@ public static class IlInspectorView
 
         // Bucket every executable symbol into (namespace, type, member).
         var buckets = new SortedDictionary<string, SortedDictionary<string, List<(string Member, NativeSymbol Symbol)>>>(StringComparer.Ordinal);
-        foreach (var s in info.Symbols)
+        foreach (var s in info.Symbols.Where(s => s.Kind is (NativeSymbolKind.Function or NativeSymbolKind.Stub or NativeSymbolKind.Boundary)))
         {
-            if (s.Kind is not (NativeSymbolKind.Function or NativeSymbolKind.Stub or NativeSymbolKind.Boundary))
-                continue;
 
             string ns, type, member;
             if (s.Kind == NativeSymbolKind.Function && s.ManagedName is { } managed)
@@ -996,9 +994,8 @@ public static class IlInspectorView
     {
         var il = 0;
         var native = 0;
-        foreach (var node in state.App.Focusables)
+        foreach (var editor in state.App.Focusables.OfType<EditorNode>())
         {
-            if (node is not EditorNode editor) continue;
             if (state.IlEditorState is not null && ReferenceEquals(editor.State, state.IlEditorState))
                 il = editor.Bounds.Width;
             else if (state.IlPairNativeEditorState is not null
@@ -1265,9 +1262,8 @@ public static class IlInspectorView
                 var hidden = new Dictionary<object, EditorState>(ReferenceEqualityComparer.Instance);
                 foreach (var (key, es) in state.IlCachedEditors)
                     hidden.TryAdd(key, es);
-                foreach (var entry in state.IlBackStack)
-                    if (entry.EditorKey is not null)
-                        hidden.TryAdd(entry.EditorKey, entry.EditorState);
+                foreach (var entry in state.IlBackStack.Where(entry => entry.EditorKey is not null))
+                        hidden.TryAdd(entry.EditorKey!, entry.EditorState);
                 hidden.Remove(state.IlEditorKey);
 
                 // Wrap hidden editors in a ResponsiveWidget with always-false conditions.
@@ -1533,10 +1529,9 @@ public static class IlInspectorView
 
             foreach (var nsGroup in typesByNamespace)
             {
-                foreach (var typeDef in nsGroup)
+                foreach (var methods in nsGroup
+                             .Select(type => methodsByType.GetValueOrDefault(type.FullName) ?? []))
                 {
-                    if (!methodsByType.TryGetValue(typeDef.FullName, out var methods)) continue;
-
                     foreach (var method in methods)
                     {
                         var disassembly = disassembler.FormatDisassembly(method);

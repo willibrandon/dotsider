@@ -27,14 +27,14 @@ public class NuGetPackageAnalyzerBenchmarks
     public void Setup()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        var coreLibPath = Path.Combine(runtimeDir, "System.Private.CoreLib.dll");
-        var xmlPath = Path.Combine(runtimeDir, "System.Private.Xml.dll");
+        var coreLibPath = Path.Join(runtimeDir, "System.Private.CoreLib.dll");
+        var xmlPath = Path.Join(runtimeDir, "System.Private.Xml.dll");
 
-        _tempDir = Path.Combine(Path.GetTempPath(), "dotsider-bench-" + Guid.NewGuid().ToString("N")[..8]);
+        _tempDir = Path.Join(Path.GetTempPath(), "dotsider-bench-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(_tempDir);
 
         // --- Standard package (2 DLLs, ~24MB) ---
-        _nupkgPath = Path.Combine(_tempDir, "BenchPackage.1.0.0.nupkg");
+        _nupkgPath = Path.Join(_tempDir, "BenchPackage.1.0.0.nupkg");
 
         using (var zip = ZipFile.Open(_nupkgPath, ZipArchiveMode.Create))
         {
@@ -59,7 +59,7 @@ public class NuGetPackageAnalyzerBenchmarks
         }
 
         // --- Large package (120+ entries: 2 real DLLs + 100+ filler files) ---
-        _largeNupkgPath = Path.Combine(_tempDir, "LargePackage.1.0.0.nupkg");
+        _largeNupkgPath = Path.Join(_tempDir, "LargePackage.1.0.0.nupkg");
 
         using (var zip = ZipFile.Open(_largeNupkgPath, ZipArchiveMode.Create))
         {
@@ -107,7 +107,7 @@ public class NuGetPackageAnalyzerBenchmarks
     {
         _lastAnalyzer?.Dispose();
         try { if (Directory.Exists(_tempDir)) Directory.Delete(_tempDir, recursive: true); }
-        catch { /* best effort */ }
+        catch (Exception caughtException) when (caughtException is System.IO.IOException or UnauthorizedAccessException) { /* best effort */ }
     }
 
     /// <summary>

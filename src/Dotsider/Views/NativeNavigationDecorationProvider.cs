@@ -31,9 +31,8 @@ public sealed class NativeNavigationDecorationProvider : ITextDecorationProvider
         {
             _indexed = instructions;
             _byLine = [];
-            foreach (var insn in instructions)
-                if (insn.DisplayLine is { } dl)
-                    _byLine[dl] = insn;
+            foreach (var insn in instructions.Where(insn => insn.DisplayLine.HasValue))
+                _byLine[insn.DisplayLine.GetValueOrDefault()] = insn;
         }
 
         var spans = new List<TextDecorationSpan>();

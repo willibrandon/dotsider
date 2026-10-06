@@ -99,7 +99,7 @@ public sealed class WasmToolsTests : McpServerTestBase
     [Timeout(30_000, CooperativeCancellation = true)]
     public async Task GetAssemblyInfo_ImpossibleWasmVector_ReportsPartialSummary()
     {
-        string path = Path.Combine(
+        string path = Path.Join(
             Path.GetTempPath(),
             $"dotsider-mcp-wasm-count-{Guid.NewGuid():N}.wasm");
 

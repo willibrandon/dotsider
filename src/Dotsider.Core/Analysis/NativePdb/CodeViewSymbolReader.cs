@@ -195,13 +195,10 @@ internal static class CodeViewSymbolReader
                 return false;
             }
 
-            if (kind == DebugSFileChecksums)
+            if (kind == DebugSFileChecksums && (checksumNames is not null
+                    || !TryReadChecksums(content, out checksumNames)))
             {
-                if (checksumNames is not null
-                    || !TryReadChecksums(content, out checksumNames))
-                {
-                    return false;
-                }
+                return false;
             }
 
             p = nextOffset;

@@ -122,7 +122,8 @@ public class PreIlcIlInspectorTests : IDisposable
             && m.NativeSymbols[0].FileOffset is not null);
         TestSkip.When(correlated is null, "no exact correlation with a native symbol on this leg");
 
-        var owner = _state.Analyzer.PreIlcCompanions!.FindByAssemblyName(correlated!.AssemblyName);
+        correlated = TestAssert.NotNull(correlated);
+        var owner = _state.Analyzer.PreIlcCompanions!.FindByAssemblyName(correlated.AssemblyName);
         var ownerArg = owner is not null && !ReferenceEquals(owner, _state.Analyzer.PreIlcCompanions!.Root)
             ? owner
             : null;
@@ -173,8 +174,14 @@ public class PreIlcIlInspectorTests : IDisposable
         GC.SuppressFinalize(this);
         _cts?.Cancel();
         try { _runTask?.Wait(TimeSpan.FromSeconds(5)); }
-        catch (AggregateException ex) when (ex.InnerExceptions.All(static e => e is OperationCanceledException)) { }
-        catch (OperationCanceledException) { }
+        catch (AggregateException ex) when (ex.InnerExceptions.All(static e => e is OperationCanceledException))
+        {
+            System.Diagnostics.Trace.TraceInformation("Dispose: {0}", ex);
+        }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Dispose: {0}", handledException);
+        }
         _state?.Dispose();
         _hex1bApp?.Dispose();
         _terminal?.Dispose();

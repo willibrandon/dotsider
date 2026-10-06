@@ -17,6 +17,9 @@ on:
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: deploy
   cancel-in-progress: true
@@ -32,7 +35,7 @@ jobs:
       # docs/package.json's packageManager field) sits on PATH before
       # setup-node calls `pnpm store path` for cache resolution. Otherwise
       # the runner's system pnpm answers and the store paths diverge.
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           package_json_file: docs/package.json
       - uses: actions/setup-node@v6

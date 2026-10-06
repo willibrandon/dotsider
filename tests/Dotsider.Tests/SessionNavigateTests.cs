@@ -146,7 +146,10 @@ public class SessionNavigateTests : IAsyncDisposable
         if (_appTask is not null)
         {
             try { await _appTask; }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException handledException)
+            {
+                System.Diagnostics.Trace.TraceInformation("DisposeAsync: {0}", handledException);
+            }
         }
         _state?.Dispose();
         _app?.Dispose();

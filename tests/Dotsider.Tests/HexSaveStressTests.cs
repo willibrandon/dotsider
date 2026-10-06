@@ -67,11 +67,10 @@ public class HexSaveStressTests : IDisposable
     [Timeout(30_000, CooperativeCancellation = true)]
     public async Task LockedFile_FallsBackToTmpPath()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
+        var tempDir = Path.Join(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
-        var tempDll = Path.Combine(tempDir, "HelloWorld.dll");
+        var tempDll = Path.Join(tempDir, "HelloWorld.dll");
         File.Copy(Samples.HelloWorldDll, tempDll);
-        FileStream? fileLock = null;
 
         try
         {
@@ -93,11 +92,10 @@ public class HexSaveStressTests : IDisposable
             // Unix:    pre-create the .tmp file so Phase 1 can still write
             //          to it, then remove directory write permission so
             //          rename() fails with EACCES.
-            if (OperatingSystem.IsWindows())
-            {
-                fileLock = new FileStream(tempDll, FileMode.Open, FileAccess.Read, FileShare.Read);
-            }
-            else
+            using var fileLock = OperatingSystem.IsWindows()
+                ? new FileStream(tempDll, FileMode.Open, FileAccess.Read, FileShare.Read)
+                : null;
+            if (!OperatingSystem.IsWindows())
             {
                 File.WriteAllBytes(tempDll + ".tmp", []);
                 File.SetUnixFileMode(tempDir,
@@ -121,7 +119,6 @@ public class HexSaveStressTests : IDisposable
         }
         finally
         {
-            fileLock?.Dispose();
             if (!OperatingSystem.IsWindows())
             {
                 try
@@ -129,9 +126,16 @@ public class HexSaveStressTests : IDisposable
                     File.SetUnixFileMode(tempDir,
                         UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
                 }
-                catch { }
+                catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+                {
+                    System.Diagnostics.Trace.TraceInformation("LockedFile_FallsBackToTmpPath: {0}", handledException);
+                }
             }
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try { Directory.Delete(tempDir, recursive: true); }
+            catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+            {
+                System.Diagnostics.Trace.TraceInformation("LockedFile_FallsBackToTmpPath: {0}", handledException);
+            }
         }
     }
 
@@ -142,9 +146,9 @@ public class HexSaveStressTests : IDisposable
     [Timeout(30_000, CooperativeCancellation = true)]
     public async Task InvalidEdit_RejectsCorruptedPe()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
+        var tempDir = Path.Join(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
-        var tempDll = Path.Combine(tempDir, "HelloWorld.dll");
+        var tempDll = Path.Join(tempDir, "HelloWorld.dll");
         File.Copy(Samples.HelloWorldDll, tempDll);
 
         try
@@ -184,7 +188,11 @@ public class HexSaveStressTests : IDisposable
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try { Directory.Delete(tempDir, recursive: true); }
+            catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+            {
+                System.Diagnostics.Trace.TraceInformation("InvalidEdit_RejectsCorruptedPe: {0}", handledException);
+            }
         }
     }
 
@@ -195,9 +203,9 @@ public class HexSaveStressTests : IDisposable
     [Timeout(30_000, CooperativeCancellation = true)]
     public async Task DoubleSave_NoDirtyStateAfterFirst()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
+        var tempDir = Path.Join(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
-        var tempDll = Path.Combine(tempDir, "HelloWorld.dll");
+        var tempDll = Path.Join(tempDir, "HelloWorld.dll");
         File.Copy(Samples.HelloWorldDll, tempDll);
 
         try
@@ -244,7 +252,11 @@ public class HexSaveStressTests : IDisposable
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try { Directory.Delete(tempDir, recursive: true); }
+            catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+            {
+                System.Diagnostics.Trace.TraceInformation("DoubleSave_NoDirtyStateAfterFirst: {0}", handledException);
+            }
         }
     }
 
@@ -257,9 +269,9 @@ public class HexSaveStressTests : IDisposable
     {
         // Copy ONLY the apphost (no companion DLL) so there's no apphost
         // dialog — the file opens as a plain native binary without metadata.
-        var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
+        var tempDir = Path.Join(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
-        var tempFile = Path.Combine(tempDir, "HelloWorld");
+        var tempFile = Path.Join(tempDir, "HelloWorld");
         File.Copy(Samples.HelloWorldExe, tempFile);
 
         try
@@ -295,7 +307,11 @@ public class HexSaveStressTests : IDisposable
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try { Directory.Delete(tempDir, recursive: true); }
+            catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+            {
+                System.Diagnostics.Trace.TraceInformation("NativeBinary_HexSave_Succeeds: {0}", handledException);
+            }
         }
     }
 
@@ -387,9 +403,9 @@ public class HexSaveStressTests : IDisposable
         // Drives SaveHexChanges through the resolvedPath == null branch by
         // injecting a reopener that always returns the in-memory fallback.
         // Verifies the caller correctly sets the "working from memory" notification.
-        var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
+        var tempDir = Path.Join(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
-        var tempFile = Path.Combine(tempDir, "HelloWorld");
+        var tempFile = Path.Join(tempDir, "HelloWorld");
         File.Copy(Samples.HelloWorldExe, tempFile);
 
         try
@@ -423,7 +439,11 @@ public class HexSaveStressTests : IDisposable
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try { Directory.Delete(tempDir, recursive: true); }
+            catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+            {
+                System.Diagnostics.Trace.TraceInformation("SaveHexChanges_NativeBinary_MemoryFallbackSetsNotification: {0}", handledException);
+            }
         }
     }
 

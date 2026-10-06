@@ -26,7 +26,7 @@ public sealed class ReadyToRunProductionBoundaryTests
     public void MethodDefEntryPoints_ExactSectionBoundary_ResolvesMethod()
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchNativeFormatSection(
+        var (Image, _) = ReadyToRunImagePatcher.PatchNativeFormatSection(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.MethodDefEntryPoints,
             [0x08, 0x01, 0x00, 0x00],
@@ -59,7 +59,7 @@ public sealed class ReadyToRunProductionBoundaryTests
         }
 
         var table = BuildAbsentNativeArray(forgedCount);
-        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchNativeFormatSection(
+        var (Image, _) = ReadyToRunImagePatcher.PatchNativeFormatSection(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.MethodDefEntryPoints,
             table,
@@ -143,7 +143,7 @@ public sealed class ReadyToRunProductionBoundaryTests
     public void CompositeMethodDefEntryPoints_ExactSectionBoundary_ResolvesComponentMethod()
     {
         TestSkip.When(Samples.ReadyToRunCompositeImage is null, CompositeSkipReason);
-        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchComponentMethodDefEntryPoints(
+        var (Image, _) = ReadyToRunImagePatcher.PatchComponentMethodDefEntryPoints(
             Samples.ReadyToRunCompositeImage!,
             Samples.ReadyToRunComponentLibMvid,
             [0x08, 0x01, 0x00, 0x00],
@@ -187,7 +187,7 @@ public sealed class ReadyToRunProductionBoundaryTests
     public void InstanceMethodEntryPoints_ExactEmptyBoundary_RetainsOrdinaryMethods()
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
-        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchNativeFormatSection(
+        var (Image, _) = ReadyToRunImagePatcher.PatchNativeFormatSection(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.InstanceMethodEntryPoints,
             [0x00, 0x02, 0x02],
@@ -209,7 +209,7 @@ public sealed class ReadyToRunProductionBoundaryTests
     {
         TestSkip.When(Samples.ReadyToRunConsoleDll is null, SkipReason);
         var table = BuildEmptyNativeHashtable(shift: 20, entryIndexSize: 2);
-        var (Image, PayloadOffset) = ReadyToRunImagePatcher.PatchNativeFormatSection(
+        var (Image, _) = ReadyToRunImagePatcher.PatchNativeFormatSection(
             Samples.ReadyToRunConsoleDll!,
             ReadyToRunSectionType.InstanceMethodEntryPoints,
             table,
@@ -378,7 +378,7 @@ public sealed class ReadyToRunProductionBoundaryTests
             _ => throw new ArgumentOutOfRangeException(nameof(invalidRow)),
         };
         var fixupKind = memberReference ? (byte)0x15 : (byte)0x14;
-        var (Image, FixupOffset, SlotVirtualAddress, OriginalName, OriginalCount) = ReadyToRunImagePatcher.PatchImportFixup(
+        var (Image, _, SlotVirtualAddress, _, OriginalCount) = ReadyToRunImagePatcher.PatchImportFixup(
             Samples.ReadyToRunConsoleDll!,
             [fixupKind, .. EncodeCompressedUInt(row)]);
 

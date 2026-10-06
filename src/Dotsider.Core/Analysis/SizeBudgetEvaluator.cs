@@ -179,9 +179,8 @@ public static class SizeBudgetEvaluator
     {
         long actual = 0;
         long baseline = 0;
-        foreach (var aggregate in aggregates)
+        foreach (var aggregate in aggregates.Where(aggregate => matches(aggregate.Name)))
         {
-            if (!matches(aggregate.Name)) continue;
             actual += aggregate.RightSize;
             baseline += aggregate.LeftSize;
         }

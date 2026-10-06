@@ -109,12 +109,8 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try
-                {
-                    return _state!.App.FocusedNode is EditorNode { State: var es }
+                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es }
                     && es == _state.LeftInfoEditorState;
-                }
-                catch (NullReferenceException) { return false; }
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -124,12 +120,8 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try
-                {
-                    return _state!.App.FocusedNode is EditorNode { State: var es }
+                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es }
                     && es == _state.RightInfoEditorState;
-                }
-                catch (NullReferenceException) { return false; }
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -139,18 +131,18 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try
-                {
-                    return _state!.App.FocusedNode is EditorNode { State: var es }
+                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es }
                     && es == _state.ChangeStatsEditorState;
-                }
-                catch (NullReferenceException) { return false; }
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Summary_TabCyclesThroughEditors: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -169,12 +161,8 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab) // Focus left info editor
             .WaitUntil(_ =>
             {
-                try
-                {
-                    return _state!.App.FocusedNode is EditorNode { State: var editorState }
+                return _state is not null && _state.App.FocusedNode is EditorNode { State: var editorState }
                         && ReferenceEquals(editorState, _state.LeftInfoEditorState);
-                }
-                catch (NullReferenceException) { return false; }
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -194,7 +182,11 @@ public class DiffModeYankIntegrationTests : IDisposable
         Assert.AreEqual(tabBefore, _state.CurrentTab);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Summary_LeftRightDoNotSwitchTabsWhenEditorFocused: {0}", handledException);
+        }
     }
 
     // --- Types/Methods/Refs tabs ---
@@ -250,7 +242,11 @@ public class DiffModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Types_YankOnFocusedRow_ShowsNotification: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -318,7 +314,11 @@ public class DiffModeYankIntegrationTests : IDisposable
         Assert.AreNotEqual(secondFocused, _state.DiffFocusedKey);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Types_SearchWithNavigation_CyclesMatches: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -349,7 +349,11 @@ public class DiffModeYankIntegrationTests : IDisposable
         Assert.AreEqual(1, _state.CurrentTab);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("TabArrows_WorkWhenEditorNotFocused: {0}", handledException);
+        }
     }
 
     // --- Summary editor selection + yank ---
@@ -371,12 +375,8 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try
-                {
-                    return _state!.App.FocusedNode is EditorNode { State: var es }
+                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es }
                     && es == _state.LeftInfoEditorState;
-                }
-                catch (NullReferenceException) { return false; }
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -398,7 +398,11 @@ public class DiffModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Summary_SelectionYank_ShowsNotification: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -419,8 +423,7 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is EditorNode { State: var es } && es == _state.RightInfoEditorState; }
-                catch (NullReferenceException) { return false; }
+                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es } && es == _state.RightInfoEditorState;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -437,7 +440,11 @@ public class DiffModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Summary_RightInfoYank_ShowsNotification: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -457,22 +464,19 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is EditorNode { State: var es } && es == _state.LeftInfoEditorState; }
-                catch (NullReferenceException) { return false; }
+                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es } && es == _state.LeftInfoEditorState;
             }, TimeSpan.FromSeconds(5))
             // Tab to right info
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is EditorNode { State: var es } && es == _state.RightInfoEditorState; }
-                catch (NullReferenceException) { return false; }
+                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es } && es == _state.RightInfoEditorState;
             }, TimeSpan.FromSeconds(5))
             // Tab to change stats
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is EditorNode { State: var es } && es == _state.ChangeStatsEditorState; }
-                catch (NullReferenceException) { return false; }
+                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es } && es == _state.ChangeStatsEditorState;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -489,7 +493,11 @@ public class DiffModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Summary_ChangeStatsYank_ShowsNotification: {0}", handledException);
+        }
     }
 
     // --- Methods tab yank ---
@@ -536,7 +544,11 @@ public class DiffModeYankIntegrationTests : IDisposable
         Assert.AreEqual(expectedPayload, actualClipboard);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Methods_YankOnFocusedRow_ShowsNotification: {0}", handledException);
+        }
     }
 
     // --- Refs tab yank ---
@@ -583,7 +595,11 @@ public class DiffModeYankIntegrationTests : IDisposable
         Assert.AreEqual(expectedPayload, actualClipboard);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Refs_YankOnFocusedRow_ShowsNotification: {0}", handledException);
+        }
     }
 
     // --- Methods n/N search navigation ---
@@ -646,7 +662,11 @@ public class DiffModeYankIntegrationTests : IDisposable
         Assert.AreNotEqual(second, _state.DiffFocusedKey);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Methods_SearchNavigation_CyclesMatches: {0}", handledException);
+        }
     }
 
     // --- Refs n/N search navigation ---
@@ -709,7 +729,11 @@ public class DiffModeYankIntegrationTests : IDisposable
         Assert.AreNotEqual(second, _state.DiffFocusedKey);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Refs_SearchNavigation_CyclesMatches: {0}", handledException);
+        }
     }
 
     // --- Yank flash set and clear ---
@@ -753,7 +777,11 @@ public class DiffModeYankIntegrationTests : IDisposable
         Assert.IsFalse(_state!.YankFlashRow);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Types_YankFlash_SetsAndClears: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -773,8 +801,7 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is EditorNode; }
-                catch (NullReferenceException) { return false; }
+                return _state!.App.FocusedNode is EditorNode;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -794,7 +821,11 @@ public class DiffModeYankIntegrationTests : IDisposable
         Assert.DoesNotContain("\n", yankedText);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Summary_YY_YanksCurrentLine: {0}", handledException);
+        }
     }
 
     private static string GetAssemblyRefDiffKey(DiffEntry<AssemblyRefInfo> entry) =>

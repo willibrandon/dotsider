@@ -297,7 +297,7 @@ public static class IlNavigationResolver
                 (GenericParamKind.TypeParameter, blob.ReadCompressedInteger()),
             SignatureTypeCode.GenericMethodParameter =>
                 (GenericParamKind.MethodParameter, blob.ReadCompressedInteger()),
-            _ => ((GenericParamKind Kind, int Index)?)null,
+            _ => default((GenericParamKind Kind, int Index)?),
         };
 
         return result is not null && blob.RemainingBytes == 0 ? result : null;

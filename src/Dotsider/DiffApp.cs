@@ -272,15 +272,8 @@ public sealed class DiffApp(DiffState state)
                 hints.Add(s.Section("y: Yank"));
 
             // iw/iW hint — show when a read-only editor is focused
-            try
-            {
-                if (_state.App.FocusedNode is EditorNode)
-                    hints.Add(s.Section("V: Line | iw: Word | iW: WORD"));
-            }
-            catch (NullReferenceException)
-            {
-                // Focus ring not yet initialized
-            }
+            if (_state.App.FocusedNode is EditorNode)
+                hints.Add(s.Section("V: Line | iw: Word | iW: WORD"));
 
             hints.Add(s.Spacer());
 

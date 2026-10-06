@@ -160,14 +160,11 @@ public sealed record BindingPolicy(
     {
         if (!Version.TryParse(effective.Version, out var version))
             return null;
-        foreach (var cb in CodeBases)
-        {
-            if (!string.Equals(cb.Name, effective.Name, StringComparison.OrdinalIgnoreCase)) continue;
-            if (!PktEquals(cb.PublicKeyToken, effective.PublicKeyToken)) continue;
-            if (!CultureEquals(cb.Culture, effective.Culture)) continue;
-            if (cb.Version == version) return cb;
-        }
-        return null;
+        return CodeBases.FirstOrDefault(cb =>
+            string.Equals(cb.Name, effective.Name, StringComparison.OrdinalIgnoreCase)
+            && PktEquals(cb.PublicKeyToken, effective.PublicKeyToken)
+            && CultureEquals(cb.Culture, effective.Culture)
+            && cb.Version == version);
     }
 
     /// <summary>
@@ -391,15 +388,14 @@ public sealed record BindingPolicy(
             Environment.GetEnvironmentVariable("ProgramFiles(x86)"),
             Environment.GetEnvironmentVariable("ProgramFiles"),
         };
-        foreach (var root in roots)
+        foreach (var root in roots.Where(root => !(string.IsNullOrEmpty(root))))
         {
-            if (string.IsNullOrEmpty(root)) continue;
-            var frameworkRoot = Path.Combine(root!, "Reference Assemblies", "Microsoft", "Framework");
+            var frameworkRoot = Path.Join(root!, "Reference Assemblies", "Microsoft", "Framework");
             if (!Directory.Exists(frameworkRoot)) continue;
 
             if (runtimeVersion == NetFxRuntimeVersion.Clr4)
             {
-                var refRoot = Path.Combine(frameworkRoot, ".NETFramework");
+                var refRoot = Path.Join(frameworkRoot, ".NETFramework");
                 if (!Directory.Exists(refRoot)) continue;
                 IEnumerable<string> versionDirs;
                 try { versionDirs = Directory.EnumerateDirectories(refRoot, "v4.*"); }
@@ -408,7 +404,7 @@ public sealed record BindingPolicy(
                 foreach (var versionDir in versionDirs)
                 {
                     AddDllNamesFrom(versionDir, names);
-                    var facades = Path.Combine(versionDir, "Facades");
+                    var facades = Path.Join(versionDir, "Facades");
                     if (Directory.Exists(facades)) AddDllNamesFrom(facades, names);
                 }
             }
@@ -416,16 +412,16 @@ public sealed record BindingPolicy(
             {
                 // Three legacy locations for the Clr2 surface: v3.5 (with optional Client
                 // profile), v3.0, and the .NETFramework\v3.5 mirror added when 4.0 shipped.
-                var v35 = Path.Combine(frameworkRoot, "v3.5");
+                var v35 = Path.Join(frameworkRoot, "v3.5");
                 if (Directory.Exists(v35))
                 {
                     AddDllNamesFrom(v35, names);
-                    var clientProfile = Path.Combine(v35, "Profile", "Client");
+                    var clientProfile = Path.Join(v35, "Profile", "Client");
                     if (Directory.Exists(clientProfile)) AddDllNamesFrom(clientProfile, names);
                 }
-                var v30 = Path.Combine(frameworkRoot, "v3.0");
+                var v30 = Path.Join(frameworkRoot, "v3.0");
                 if (Directory.Exists(v30)) AddDllNamesFrom(v30, names);
-                var netFxV35 = Path.Combine(frameworkRoot, ".NETFramework", "v3.5");
+                var netFxV35 = Path.Join(frameworkRoot, ".NETFramework", "v3.5");
                 if (Directory.Exists(netFxV35)) AddDllNamesFrom(netFxV35, names);
             }
         }
@@ -451,7 +447,7 @@ public sealed record BindingPolicy(
         if (string.IsNullOrEmpty(windir)) return;
         var subdir = architecture == NetFxArchitecture.X86 ? "Framework" : "Framework64";
         var runtimeDir = runtimeVersion == NetFxRuntimeVersion.Clr2 ? "v2.0.50727" : "v4.0.30319";
-        var dir = Path.Combine(windir!, "Microsoft.NET", subdir, runtimeDir);
+        var dir = Path.Join(windir!, "Microsoft.NET", subdir, runtimeDir);
         if (!Directory.Exists(dir)) return;
 
         IEnumerable<string> files;
@@ -459,17 +455,19 @@ public sealed record BindingPolicy(
         catch (UnauthorizedAccessException) { return; }
         catch (IOException) { return; }
 
-        foreach (var file in files)
+        var entries = files.Select(TryReadAssemblyIdentity)
+            .Where(identity => identity.HasValue)
+            .Select(identity => identity.GetValueOrDefault())
+            .Where(identity => !string.IsNullOrEmpty(identity.PublicKeyToken)
+                && AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens.Contains(identity.PublicKeyToken))
+            .Select(identity => (identity.Name, identity.PublicKeyToken,
+                Version: Version.TryParse(identity.Version, out var version) ? version : null))
+            .Where(entry => entry.Version is not null);
+        foreach (var entry in entries)
         {
-            var identity = TryReadAssemblyIdentity(file);
-            if (identity is null) continue;
-            if (string.IsNullOrEmpty(identity.Value.PublicKeyToken)) continue;
-            if (!AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens.Contains(identity.Value.PublicKeyToken!))
-                continue;
-            if (!Version.TryParse(identity.Value.Version, out var v)) continue;
-            var key = (identity.Value.Name, identity.Value.PublicKeyToken!);
-            if (!table.TryGetValue(key, out var existing) || v > existing)
-                table[key] = v;
+            var key = (entry.Name, entry.PublicKeyToken!);
+            if (!table.TryGetValue(key, out var existing) || entry.Version > existing)
+                table[key] = entry.Version!;
         }
     }
 
@@ -490,13 +488,10 @@ public sealed record BindingPolicy(
             ? ["GAC_MSIL", archSubdir, "GAC"]
             : ["GAC_MSIL", archSubdir];
 
-        foreach (var root in gacRoots)
+        foreach (var root in gacRoots.Where(root => Directory.Exists(root)))
         {
-            if (!Directory.Exists(root)) continue;
-            foreach (var gacSubdir in subdirs)
+            foreach (var gacPath in subdirs.Select(gacSubdir => Path.Join(root, gacSubdir)).Where(Directory.Exists))
             {
-                var gacPath = Path.Combine(root, gacSubdir);
-                if (!Directory.Exists(gacPath)) continue;
                 IEnumerable<string> nameDirs;
                 try { nameDirs = Directory.EnumerateDirectories(gacPath); }
                 catch (UnauthorizedAccessException) { continue; }
@@ -516,14 +511,16 @@ public sealed record BindingPolicy(
                     catch (UnauthorizedAccessException) { continue; }
                     catch (IOException) { continue; }
 
-                    foreach (var tokenDir in tokenDirs)
+                    var entries = tokenDirs.Select(Path.GetFileName).OfType<string>()
+                        .Select(token => TryParseGacToken(token, runtimeVersion, out var version, out var pkt)
+                            ? (Version: version, PublicKeyToken: pkt) : default)
+                        .Where(entry => entry.Version is not null && entry.PublicKeyToken is not null
+                            && AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens.Contains(entry.PublicKeyToken));
+                    foreach (var entry in entries)
                     {
-                        var token = Path.GetFileName(tokenDir);
-                        if (!TryParseGacToken(token, runtimeVersion, out var version, out var pkt)) continue;
-                        if (!AssemblyAnalyzer.FrameworkUnificationPublicKeyTokens.Contains(pkt!)) continue;
-                        var key = (simpleName, pkt!);
-                        if (!table.TryGetValue(key, out var existing) || version > existing)
-                            table[key] = version;
+                        var key = (simpleName, entry.PublicKeyToken!);
+                        if (!table.TryGetValue(key, out var existing) || entry.Version > existing)
+                            table[key] = entry.Version!;
                     }
                 }
             }
@@ -602,7 +599,7 @@ public sealed record BindingPolicy(
                     analyzer.Culture ?? "neutral",
                     analyzer.PublicKeyToken);
         }
-        catch { return null; }
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException) { return null; }
     }
 
     /// <summary>
@@ -627,15 +624,10 @@ public sealed record BindingPolicy(
             // <publisherPolicy apply="no"/> at runtime scope disables for every bind in the
             // AppDomain regardless of <dependentAssembly> blocks. Capture per-document and
             // surface it via the parse result so BindingPolicy can flip the global flag.
-            var globalPublisherPolicyDisabled = false;
-            foreach (var pp in runtime.Elements().Where(e => e.Name.LocalName == "publisherPolicy"))
-            {
-                if (string.Equals(pp.Attribute("apply")?.Value, "no", StringComparison.OrdinalIgnoreCase))
-                {
-                    globalPublisherPolicyDisabled = true;
-                    anyGlobalDisable = true;
-                }
-            }
+            var globalPublisherPolicyDisabled = runtime.Elements().Any(element =>
+                element.Name.LocalName == "publisherPolicy"
+                && string.Equals(element.Attribute("apply")?.Value, "no", StringComparison.OrdinalIgnoreCase));
+            anyGlobalDisable |= globalPublisherPolicyDisabled;
 
             foreach (var binding in runtime.Elements().Where(e => e.Name.LocalName == "assemblyBinding"))
             {
@@ -686,12 +678,9 @@ public sealed record BindingPolicy(
         var procArch = identity.Attribute("processorArchitecture")?.Value;
 
         // Per-dependentAssembly <publisherPolicy apply="no"/>.
-        var localPublisherPolicyDisabled = false;
-        foreach (var pp in dependent.Elements().Where(e => e.Name.LocalName == "publisherPolicy"))
-        {
-            if (string.Equals(pp.Attribute("apply")?.Value, "no", StringComparison.OrdinalIgnoreCase))
-                localPublisherPolicyDisabled = true;
-        }
+        var localPublisherPolicyDisabled = dependent.Elements().Any(element =>
+            element.Name.LocalName == "publisherPolicy"
+            && string.Equals(element.Attribute("apply")?.Value, "no", StringComparison.OrdinalIgnoreCase));
         if (globalPublisherPolicyDisabled || localPublisherPolicyDisabled)
             disabled.Add((name, pkt, culture));
 
@@ -759,7 +748,7 @@ public sealed record BindingPolicy(
         if (string.IsNullOrEmpty(windir)) return null;
         var subdir = architecture == NetFxArchitecture.X86 ? "Framework" : "Framework64";
         var runtimeDir = runtimeVersion == NetFxRuntimeVersion.Clr2 ? "v2.0.50727" : "v4.0.30319";
-        var path = Path.Combine(windir!, "Microsoft.NET", subdir, runtimeDir, "Config", "machine.config");
+        var path = Path.Join(windir!, "Microsoft.NET", subdir, runtimeDir, "Config", "machine.config");
         return File.Exists(path) ? path : null;
     }
 
@@ -780,13 +769,10 @@ public sealed record BindingPolicy(
         string[] subdirs = runtimeVersion == NetFxRuntimeVersion.Clr2
             ? ["GAC_MSIL", archSubdir, "GAC"]
             : ["GAC_MSIL", archSubdir];
-        foreach (var root in gacRoots)
+        foreach (var root in gacRoots.Where(root => Directory.Exists(root)))
         {
-            if (!Directory.Exists(root)) continue;
-            foreach (var subdir in subdirs)
+            foreach (var gacPath in subdirs.Select(subdir => Path.Join(root, subdir)).Where(Directory.Exists))
             {
-                var gacPath = Path.Combine(root, subdir);
-                if (!Directory.Exists(gacPath)) continue;
                 IEnumerable<string> policyFamilies;
                 try
                 {

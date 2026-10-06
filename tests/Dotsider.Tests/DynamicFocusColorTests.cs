@@ -90,15 +90,12 @@ public class DynamicFocusColorTests : IDisposable
                     // Found the focused row — find the category text by scanning
                     // for a known category name (JIT, GC, etc.) on this row.
                     var lineText = s.GetTextAt(y, 0, s.Width);
-                    foreach (var cat in DynamicAnalysisView.CategoryColors.Keys)
+                    foreach (var idx in DynamicAnalysisView.CategoryColors.Keys
+                        .Select(cat => lineText.IndexOf(cat.ToString(), StringComparison.Ordinal))
+                        .Where(index => index >= 0))
                     {
-                        var catName = cat.ToString();
-                        var idx = lineText.IndexOf(catName, StringComparison.Ordinal);
-                        if (idx >= 0)
-                        {
-                            categoryFg = s.GetCell(idx, y).Foreground;
-                            return true;
-                        }
+                        categoryFg = s.GetCell(idx, y).Foreground;
+                        return true;
                     }
 
                     return true; // focused row found but no known category text

@@ -37,9 +37,8 @@ public sealed class NativeSyntaxDecorationProvider : ITextDecorationProvider
         {
             _indexed = instructions;
             _byLine = [];
-            foreach (var insn in instructions)
-                if (insn.DisplayLine is { } dl)
-                    _byLine[dl] = insn;
+            foreach (var insn in instructions.Where(insn => insn.DisplayLine.HasValue))
+                _byLine[insn.DisplayLine.GetValueOrDefault()] = insn;
         }
 
         for (var line = startLine; line <= endLine && line <= document.LineCount; line++)

@@ -30,9 +30,9 @@ public sealed class NuGetPackageAnalyzerSecurityTests(TestContext testContext)
     {
         var existingDirectoryName = "dotsider-nupkg-existing-" + Guid.NewGuid().ToString("N");
         var absentDirectoryName = "dotsider-nupkg-absent-" + Guid.NewGuid().ToString("N");
-        var existingDirectory = Path.Combine(Path.GetTempPath(), existingDirectoryName);
-        var absentDirectory = Path.Combine(Path.GetTempPath(), absentDirectoryName);
-        var outsideFile = Path.Combine(existingDirectory, "RichLibrary.dll");
+        var existingDirectory = Path.Join(Path.GetTempPath(), existingDirectoryName);
+        var absentDirectory = Path.Join(Path.GetTempPath(), absentDirectoryName);
+        var outsideFile = Path.Join(existingDirectory, "RichLibrary.dll");
         byte[] sentinel = [0x21, 0x09, 0x20, 0x99];
         Directory.CreateDirectory(existingDirectory);
         File.WriteAllBytes(outsideFile, sentinel);
@@ -99,10 +99,10 @@ public sealed class NuGetPackageAnalyzerSecurityTests(TestContext testContext)
     [TestMethod]
     public void OpenDll_HostRootedPath_DoesNotWriteToRequestedDestination()
     {
-        var outsideDirectory = Path.Combine(
+        var outsideDirectory = Path.Join(
             Path.GetTempPath(),
             "dotsider-nupkg-rooted-" + Guid.NewGuid().ToString("N"));
-        var outsideFile = Path.Combine(outsideDirectory, "RichLibrary.dll");
+        var outsideFile = Path.Join(outsideDirectory, "RichLibrary.dll");
         var packagePath = CreatePackage((outsideFile, ReadSampleAssembly()));
 
         try
@@ -246,10 +246,10 @@ public sealed class NuGetPackageAnalyzerSecurityTests(TestContext testContext)
     {
         var root = Directory.CreateTempSubdirectory("dotsider-containment-root-").FullName;
         var rootName = Path.GetFileName(root);
-        var child = Path.Combine(root, "lib", "RichLibrary.dll");
+        var child = Path.Join(root, "lib", "RichLibrary.dll");
         var parent = Path.GetDirectoryName(root);
         Assert.IsNotNull(parent);
-        var sibling = Path.Combine(
+        var sibling = Path.Join(
             parent,
             rootName + "bell",
             "RichLibrary.dll");
@@ -330,7 +330,7 @@ public sealed class NuGetPackageAnalyzerSecurityTests(TestContext testContext)
     public void OpenDll_ForgedEntry_ThrowsBeforeFilesystemAccess()
     {
         var outsideDirectoryName = "dotsider-nupkg-forged-" + Guid.NewGuid().ToString("N");
-        var outsideDirectory = Path.Combine(Path.GetTempPath(), outsideDirectoryName);
+        var outsideDirectory = Path.Join(Path.GetTempPath(), outsideDirectoryName);
         var packagePath = CreatePackage(("lib/RichLibrary.dll", ReadSampleAssembly()));
         var forged = new NuGetFileEntry(
             "RichLibrary.dll",
@@ -527,7 +527,7 @@ public sealed class NuGetPackageAnalyzerSecurityTests(TestContext testContext)
                         () => package.OpenDll(entry)));
 
                 Assert.IsNotNull(package.ExtractionDirectory);
-                Assert.IsFalse(Directory.Exists(Path.Combine(package.ExtractionDirectory, "lib")));
+                Assert.IsFalse(Directory.Exists(Path.Join(package.ExtractionDirectory, "lib")));
             }
         }
         finally
@@ -761,7 +761,7 @@ public sealed class NuGetPackageAnalyzerSecurityTests(TestContext testContext)
 
             Assert.ThrowsExactly<BadImageFormatException>(() => package.OpenDll(entry));
             Assert.IsNotNull(package.ExtractionDirectory);
-            var extractedPath = Path.Combine(package.ExtractionDirectory, "lib", "invalid.dll");
+            var extractedPath = Path.Join(package.ExtractionDirectory, "lib", "invalid.dll");
             Assert.IsFalse(File.Exists(extractedPath));
 
             Assert.ThrowsExactly<BadImageFormatException>(() => package.OpenDll(entry));
@@ -838,37 +838,40 @@ public sealed class NuGetPackageAnalyzerSecurityTests(TestContext testContext)
 
                 try
                 {
-                    var openTask = Task.Factory.StartNew(
-                        () =>
-                        {
-                            barrier.SignalAndWait(cancellationToken);
-                            try
+                    using (package)
+                    {
+                        var openTask = Task.Factory.StartNew(
+                            () =>
                             {
-                                using var analyzer = package.OpenDll(entry);
-                                Assert.AreEqual("RichLibrary", analyzer.AssemblyName);
-                            }
-                            catch (ObjectDisposedException)
+                                barrier.SignalAndWait(cancellationToken);
+                                try
+                                {
+                                    using var analyzer = package.OpenDll(entry);
+                                    Assert.AreEqual("RichLibrary", analyzer.AssemblyName);
+                                }
+                                catch (ObjectDisposedException handledException)
+                                {
+                                    System.Diagnostics.Trace.TraceInformation("OpenDll_RacingDispose_ProducesOnlySerializedOutcomes: {0}", handledException);
+                                }
+                            },
+                            cancellationToken,
+                            TaskCreationOptions.LongRunning,
+                            TaskScheduler.Default);
+                        var disposeTask = Task.Factory.StartNew(
+                            () =>
                             {
-                            }
-                        },
-                        cancellationToken,
-                        TaskCreationOptions.LongRunning,
-                        TaskScheduler.Default);
-                    var disposeTask = Task.Factory.StartNew(
-                        () =>
-                        {
-                            barrier.SignalAndWait(cancellationToken);
-                            package.Dispose();
-                        },
-                        cancellationToken,
-                        TaskCreationOptions.LongRunning,
-                        TaskScheduler.Default);
+                                barrier.SignalAndWait(cancellationToken);
+                                package.Dispose();
+                            },
+                            cancellationToken,
+                            TaskCreationOptions.LongRunning,
+                            TaskScheduler.Default);
 
-                    await Task.WhenAll(openTask, disposeTask).WaitAsync(cancellationToken);
+                        await Task.WhenAll(openTask, disposeTask).WaitAsync(cancellationToken);
+                    }
                 }
                 finally
                 {
-                    package.Dispose();
 
                     if (package.ExtractionDirectory is { } extractionDirectory)
                         DeleteDirectory(extractionDirectory);
@@ -919,7 +922,7 @@ public sealed class NuGetPackageAnalyzerSecurityTests(TestContext testContext)
 
         try
         {
-            var package = new NuGetPackageAnalyzer(packagePath);
+            using var package = new NuGetPackageAnalyzer(packagePath);
             var entry = Assert.ContainsSingle(package.DllFiles);
             string extractedPath;
             using (var analyzer = package.OpenDll(entry))
@@ -983,10 +986,10 @@ public sealed class NuGetPackageAnalyzerSecurityTests(TestContext testContext)
         string manifest,
         params (string EntryName, byte[] Content)[] entries)
     {
-        var directory = Path.Combine(
+        var directory = Path.Join(
             Path.GetTempPath(),
             "dotsider-nupkg-security-" + Guid.NewGuid().ToString("N"));
-        var packagePath = Path.Combine(directory, "SecurityTests.1.0.0.nupkg");
+        var packagePath = Path.Join(directory, "SecurityTests.1.0.0.nupkg");
         Directory.CreateDirectory(directory);
 
         try

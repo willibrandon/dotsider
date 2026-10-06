@@ -27,10 +27,10 @@ internal sealed class SshContext : IDisposable
         string workingDirectory)
     {
         string knownHosts = ScanHostKey(host, processRunner, workingDirectory);
-        _directory = Path.Combine(Path.GetTempPath(), "dotsider-deploy-" + Guid.NewGuid().ToString("N"));
+        _directory = Path.Join(Path.GetTempPath(), "dotsider-deploy-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_directory);
-        IdentityPath = Path.Combine(_directory, "identity");
-        KnownHostsPath = Path.Combine(_directory, "known_hosts");
+        IdentityPath = Path.Join(_directory, "identity");
+        KnownHostsPath = Path.Join(_directory, "known_hosts");
         try
         {
             if (!OperatingSystem.IsWindows())

@@ -342,13 +342,13 @@ public class DotsiderStateTests : IDisposable
         var app = CreateApp();
         string[] paths = [Samples.HelloWorldDll, Samples.RichLibraryDll, Samples.ComplexAppDll,
             Samples.MinimalApiDll, Samples.NativeLibDll, Samples.EmptyLibDll, Samples.RichLibraryV2Dll];
-        foreach (var path in paths)
-        {
-            using var state = new DotsiderState(app, path);
-            Assert.IsNotNull(state.Analyzer);
-            Assert.IsNotNull(state.IlDisassembler);
-            Assert.IsNotNull(state.StringExtractor);
-        }
+        foreach (var state in paths.Select(path => new DotsiderState(app, path)))
+            using (state)
+            {
+                Assert.IsNotNull(state.Analyzer);
+                Assert.IsNotNull(state.IlDisassembler);
+                Assert.IsNotNull(state.StringExtractor);
+            }
     }
 
     // --- Cross-View Navigation Tests ---
@@ -601,11 +601,11 @@ public class DotsiderStateTests : IDisposable
 
         var symbol = state.Analyzer.NativeSymbols!.Symbols.First(s => s.FileOffset is not null && s.Size > 0);
         state.IlSelectedNativeSymbol = symbol;
-        state.NavigateToHexFileOffset(symbol.FileOffset!.Value);
+        state.NavigateToHexFileOffset(TestAssert.HasValue(symbol.FileOffset));
 
         Assert.AreEqual(TabId.HexDump, state.CurrentTab);
-        Assert.AreEqual((int)symbol.FileOffset.Value, state.HexEditorState.ByteCursorOffset);
-        Assert.AreEqual(symbol.FileOffset.Value, state.HexScrollTarget);
+        Assert.AreEqual((int)TestAssert.HasValue(symbol.FileOffset), state.HexEditorState.ByteCursorOffset);
+        Assert.AreEqual(TestAssert.HasValue(symbol.FileOffset), state.HexScrollTarget);
         Assert.IsNotNull(state.CrossViewBackTarget);
         Assert.AreEqual(TabId.IlInspector, state.CrossViewBackTarget!.Value.Tab);
     }

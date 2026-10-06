@@ -1,5 +1,5 @@
 using Hex1b;
-using System.Runtime.CompilerServices;
+using System.Reflection;
 
 namespace Dotsider.Tests;
 
@@ -9,12 +9,16 @@ namespace Dotsider.Tests;
 /// </summary>
 internal static class Hex1bMouseCompatibility
 {
+    private static readonly FieldInfo s_lastClickTime = typeof(Hex1bApp)
+        .GetField("_lastClickTime", BindingFlags.Instance | BindingFlags.NonPublic)
+        ?? throw new MissingFieldException(typeof(Hex1bApp).FullName, "_lastClickTime");
+
     /// <summary>
     /// Resets Hex1b's click clock so the next real mouse-down begins a new click sequence.
     /// </summary>
     /// <param name="app">The application that will process the mouse event.</param>
     internal static void BeginClickSequence(Hex1bApp app) =>
-        GetLastClickTime(app) = DateTime.MinValue;
+        s_lastClickTime.SetValue(app, DateTime.MinValue);
 
     /// <summary>
     /// Moves Hex1b's click clock ahead of the current time so the next real mouse-down
@@ -22,8 +26,5 @@ internal static class Hex1bMouseCompatibility
     /// </summary>
     /// <param name="app">The application that will process the mouse event.</param>
     internal static void ContinueClickSequence(Hex1bApp app) =>
-        GetLastClickTime(app) = DateTime.MaxValue;
-
-    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "_lastClickTime")]
-    private static extern ref DateTime GetLastClickTime(Hex1bApp app);
+        s_lastClickTime.SetValue(app, DateTime.MaxValue);
 }

@@ -89,9 +89,8 @@ public static class MstatReader
             var hasMethods = false;
             var hasTypes = false;
             var moduleType = mr.GetTypeDefinition(MetadataTokens.TypeDefinitionHandle(1));
-            foreach (var handle in moduleType.GetMethods())
+            foreach (var name in moduleType.GetMethods().Select(handle => mr.GetString(mr.GetMethodDefinition(handle).Name)))
             {
-                var name = mr.GetString(mr.GetMethodDefinition(handle).Name);
                 if (name == "Methods") hasMethods = true;
                 else if (name == "Types") hasTypes = true;
                 if (hasMethods && hasTypes) return true;
@@ -99,7 +98,7 @@ public static class MstatReader
 
             return false;
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return false;
         }
@@ -141,7 +140,7 @@ public static class MstatReader
                 ReadManifestResources(streams, mr),
                 ReadDeduplicatedMethods(streams, resolver, names));
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             // Not a PE, no metadata, or damaged beyond the lenient per-stream recovery.
             return null;
@@ -158,9 +157,8 @@ public static class MstatReader
         if (mr.TypeDefinitions.Count == 0) return streams;
 
         var moduleType = mr.GetTypeDefinition(MetadataTokens.TypeDefinitionHandle(1));
-        foreach (var handle in moduleType.GetMethods())
+        foreach (var method in moduleType.GetMethods().Select(handle => mr.GetMethodDefinition(handle)))
         {
-            var method = mr.GetMethodDefinition(handle);
             var name = mr.GetString(method.Name);
             if (name is not ("Methods" or "Types" or "Blobs" or "RvaFields" or "FrozenObjects"
                 or "ManifestResources" or "DeduplicatedMethods"))
@@ -213,9 +211,8 @@ public static class MstatReader
     private static List<AssemblyRefInfo> ReadAssemblyRefs(MetadataReader mr)
     {
         var result = new List<AssemblyRefInfo>();
-        foreach (var handle in mr.AssemblyReferences)
+        foreach (var ar in mr.AssemblyReferences.Select(handle => mr.GetAssemblyReference(handle)))
         {
-            var ar = mr.GetAssemblyReference(handle);
             var culture = mr.GetString(ar.Culture);
             if (string.IsNullOrEmpty(culture)) culture = "neutral";
 

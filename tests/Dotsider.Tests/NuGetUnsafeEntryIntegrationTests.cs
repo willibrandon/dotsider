@@ -32,9 +32,9 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
         var cancellationToken = _testContext.CancellationToken;
         var uniqueName = "dotsider-nupkg-ui-" + Guid.NewGuid().ToString("N");
         var packageDirectory = Directory.CreateTempSubdirectory("dotsider-nupkg-ui-test-").FullName;
-        var packagePath = Path.Combine(packageDirectory, "UnsafePackage.1.0.0.nupkg");
-        var outsideDirectory = Path.Combine(Path.GetTempPath(), uniqueName);
-        var sentinelPath = Path.Combine(outsideDirectory, "unsafe.dll");
+        var packagePath = Path.Join(packageDirectory, "UnsafePackage.1.0.0.nupkg");
+        var outsideDirectory = Path.Join(Path.GetTempPath(), uniqueName);
+        var sentinelPath = Path.Join(outsideDirectory, "unsafe.dll");
         var sentinelText = "outside sentinel must remain unchanged";
         var unsafeEntryPath = $"../{uniqueName}/unsafe.dll";
         const string safeEntryPath = "lib/net10.0/RichLibrary.dll";
@@ -50,8 +50,8 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
                 (unsafeEntryPath, assemblyBytes),
                 (safeEntryPath, assemblyBytes));
 
-            var workload = new Hex1bAppWorkloadAdapter();
-            var terminal = Hex1bTerminal.CreateBuilder()
+            using var workload = new Hex1bAppWorkloadAdapter();
+            using var terminal = Hex1bTerminal.CreateBuilder()
                 .WithWorkload(workload)
                 .WithHeadless()
                 .WithDimensions(120, 30)
@@ -72,6 +72,7 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
                     WorkloadAdapter = workload
                 });
 
+            using var appScope = app;
             var runTask = app.RunAsync(cancellationToken);
             string? extractedPath = null;
             string? extractionRoot = null;
@@ -154,17 +155,8 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
                 }
                 finally
                 {
-                    try
-                    {
-                        state?.Dispose();
-                        state?.Dispose();
-                    }
-                    finally
-                    {
-                        app.Dispose();
-                        terminal.Dispose();
-                        workload.Dispose();
-                    }
+                    using var stateScope = state;
+                    state = null;
                 }
             }
 
@@ -214,7 +206,7 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
         var visiblePackageFileName = OperatingSystem.IsWindows()
             ? "Control\\u202EPackage.1.0.0.nupkg"
             : "␛]52;c;cGFja2FnZQ==␇-ControlPackage.1.0.0.nupkg";
-        var packagePath = Path.Combine(packageDirectory, rawPackageFileName);
+        var packagePath = Path.Join(packageDirectory, rawPackageFileName);
         var entryPath = "lib/" + RawControlName;
 
         try
@@ -227,9 +219,9 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
                 RawDescription,
                 (entryPath, []));
 
-            var workload = new Hex1bAppWorkloadAdapter();
-            var clipboard = new ClipboardCapturingWorkloadAdapter(workload);
-            var terminal = Hex1bTerminal.CreateBuilder()
+            using var workload = new Hex1bAppWorkloadAdapter();
+            using var clipboard = new ClipboardCapturingWorkloadAdapter(workload);
+            using var terminal = Hex1bTerminal.CreateBuilder()
                 .WithWorkload(workload)
                 .WithHeadless()
                 .WithDimensions(120, 30)
@@ -250,6 +242,7 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
                     WorkloadAdapter = clipboard
                 });
 
+            using var appScope = app;
             var runTask = app.RunAsync(cancellationToken);
             var rawMetadataRendered = false;
             try
@@ -311,16 +304,8 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
                 }
                 finally
                 {
-                    try
-                    {
-                        state?.Dispose();
-                    }
-                    finally
-                    {
-                        app.Dispose();
-                        terminal.Dispose();
-                        clipboard.Dispose();
-                    }
+                    using var stateScope = state;
+                    state = null;
                 }
             }
         }
@@ -342,7 +327,7 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
         const string SecondEntryPath = "lib/net10.0/Second.dll";
         byte[] sentinel = [0x21, 0x09, 0x20, 0x99];
         var packageDirectory = Directory.CreateTempSubdirectory("dotsider-nupkg-existing-test-").FullName;
-        var packagePath = Path.Combine(packageDirectory, "ExistingDestination.1.0.0.nupkg");
+        var packagePath = Path.Join(packageDirectory, "ExistingDestination.1.0.0.nupkg");
 
         try
         {
@@ -373,7 +358,7 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
             Assert.AreSame(firstEntry, state.SelectedDllEntry);
             var extractionDirectory = state.Package.ExtractionDirectory;
             Assert.IsNotNull(extractionDirectory);
-            var secondDestination = Path.Combine(
+            var secondDestination = Path.Join(
                 extractionDirectory,
                 "lib",
                 "net10.0",
@@ -403,7 +388,7 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
     public void TryOpenDll_InvalidAssembly_ShowsSanitizedError()
     {
         var packageDirectory = Directory.CreateTempSubdirectory("dotsider-nupkg-invalid-test-").FullName;
-        var packagePath = Path.Combine(packageDirectory, "InvalidPackage.1.0.0.nupkg");
+        var packagePath = Path.Join(packageDirectory, "InvalidPackage.1.0.0.nupkg");
         const string invalidEntryPath = "lib/net10.0/raw-hostile-value.dll";
 
         try
@@ -483,7 +468,7 @@ public sealed class NuGetUnsafeEntryIntegrationTests(TestContext testContext)
         var relativePath = Path.GetRelativePath(tempPath, extractedPath);
         var firstSeparator = relativePath.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
         Assert.IsGreaterThan(0, firstSeparator, $"Extracted path was not inside a private temp directory: {extractedPath}");
-        return Path.Combine(tempPath, relativePath[..firstSeparator]);
+        return Path.Join(tempPath, relativePath[..firstSeparator]);
     }
 
     private static void WriteEntry(ZipArchive archive, string entryPath, byte[] contents)

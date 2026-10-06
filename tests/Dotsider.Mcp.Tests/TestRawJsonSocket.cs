@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using System.Runtime.ExceptionServices;
 using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
@@ -81,13 +80,13 @@ internal sealed class TestRawJsonSocket : IAsyncDisposable
         while (!cancellationToken.IsCancellationRequested)
         {
             Socket client;
-            ExceptionDispatchInfo? handlerFailure = null;
+            var invokingHandler = false;
             var stopAfterConnection = false;
             try
             {
                 client = await _listener.AcceptAsync(cancellationToken);
             }
-            catch (Exception ex) when (IsExpectedShutdownException(ex, cancellationToken))
+            catch (Exception ex) when (!invokingHandler && IsExpectedShutdownException(ex, cancellationToken))
             {
                 break;
             }
@@ -108,32 +107,21 @@ internal sealed class TestRawJsonSocket : IAsyncDisposable
                 string response;
                 if (_handler is { } handler)
                 {
-                    try
-                    {
-                        response = handler(request);
-                    }
-                    catch (Exception ex)
-                    {
-                        handlerFailure = ExceptionDispatchInfo.Capture(ex);
-                        response = string.Empty;
-                    }
+                    invokingHandler = true;
+                    response = handler(request);
+                    invokingHandler = false;
                 }
                 else
                 {
                     response = JsonSerializer.Serialize(new { success = false, error = "No handler" });
                 }
-
-                if (handlerFailure is null)
-                {
-                    await writer.WriteLineAsync(response.AsMemory(), cancellationToken);
-                }
+                await writer.WriteLineAsync(response.AsMemory(), cancellationToken);
             }
-            catch (Exception ex) when (IsExpectedShutdownException(ex, cancellationToken))
+            catch (Exception ex) when (!invokingHandler && IsExpectedShutdownException(ex, cancellationToken))
             {
                 stopAfterConnection = true;
             }
 
-            handlerFailure?.Throw();
             if (stopAfterConnection)
             {
                 break;
@@ -162,6 +150,7 @@ internal sealed class TestRawJsonSocket : IAsyncDisposable
     private async Task DisposeCoreAsync()
     {
         _cts.Cancel();
+        using var cancellationScope = _cts;
         _listener.Dispose();
 
         try
@@ -173,8 +162,6 @@ internal sealed class TestRawJsonSocket : IAsyncDisposable
         }
         finally
         {
-            _cts.Dispose();
-
             if (File.Exists(_socketPath))
             {
                 File.Delete(_socketPath);

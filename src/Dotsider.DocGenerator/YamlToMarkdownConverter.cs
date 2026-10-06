@@ -21,10 +21,8 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
     /// </summary>
     public async Task ConvertAllAsync()
     {
-        foreach (var yamlFile in Directory.GetFiles(_yamlDir, "*.yml"))
+        foreach (var yamlFile in Directory.GetFiles(_yamlDir, "*.yml").Where(yamlFile => Path.GetFileName(yamlFile) != "toc.yml"))
         {
-            if (Path.GetFileName(yamlFile) == "toc.yml")
-                continue;
 
             var content = await File.ReadAllTextAsync(yamlFile);
             ParseYamlFile(content);
@@ -43,16 +41,13 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
             _namespaceOrder[namespaces[i]] = i;
 
         var generatedCount = 0;
-        foreach (var item in _items.Values)
+        foreach (var item in _items.Values.Where(item => item.Type == "Namespace" || IsTopLevelType(item.Type)))
         {
-            if (item.Type == "Namespace" || IsTopLevelType(item.Type))
-            {
-                var markdown = GenerateMarkdown(item);
-                var fileName = SanitizeFileName(item.Uid) + ".md";
-                var filePath = Path.Combine(_outputDir, fileName);
-                await File.WriteAllTextAsync(filePath, markdown);
-                generatedCount++;
-            }
+            var markdown = GenerateMarkdown(item);
+            var fileName = SanitizeFileName(item.Uid) + ".md";
+            var filePath = Path.Join(_outputDir, fileName);
+            await File.WriteAllTextAsync(filePath, markdown);
+            generatedCount++;
         }
 
         Console.WriteLine($"Generated {generatedCount} markdown files");
@@ -77,7 +72,7 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
         {
             yaml.Load(reader);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is YamlDotNet.Core.YamlException)
         {
             Console.Error.WriteLine($"Failed to parse YAML: {ex.Message}");
             return;
@@ -90,11 +85,9 @@ public partial class YamlToMarkdownConverter(string yamlDir, string outputDir)
         if (root.Children.TryGetValue(new YamlScalarNode("items"), out var itemsNode) &&
             itemsNode is YamlSequenceNode items)
         {
-            foreach (var itemNode in items.OfType<YamlMappingNode>())
+            foreach (var apiItem in items.OfType<YamlMappingNode>().Select(ParseApiItem).OfType<ApiItem>())
             {
-                var apiItem = ParseApiItem(itemNode);
-                if (apiItem != null)
-                    _items[apiItem.Uid] = apiItem;
+                _items[apiItem.Uid] = apiItem;
             }
         }
     }

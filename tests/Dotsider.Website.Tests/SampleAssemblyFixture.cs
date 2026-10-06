@@ -66,11 +66,11 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             ? "website-publish-devcontainer"
             : "website-publish";
 
-        WebsitePublishedDir = Path.Combine(_repoRoot, "tests", "Dotsider.Website.Tests",
+        WebsitePublishedDir = Path.Join(_repoRoot, "tests", "Dotsider.Website.Tests",
             "bin", publishDirectoryName);
-        WebsitePublishedExe = Path.Combine(WebsitePublishedDir, $"Dotsider.Website{apphostExt}");
+        WebsitePublishedExe = Path.Join(WebsitePublishedDir, $"Dotsider.Website{apphostExt}");
 
-        var lockPath = Path.Combine(Path.GetTempPath(), "dotsider-build-website-publish.lock");
+        var lockPath = Path.Join(Path.GetTempPath(), "dotsider-build-website-publish.lock");
         FileStream lockFile;
         while (true)
         {
@@ -82,7 +82,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             catch (IOException) { await Task.Delay(200); }
         }
 
-        try
+        using (lockFile)
         {
             var psi = new ProcessStartInfo
             {
@@ -102,10 +102,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 throw new InvalidOperationException(
                     $"Website publish failed (exit {process.ExitCode})");
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     private async Task PublishSample()
@@ -117,10 +113,10 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         // deploy layout exactly; tests then exercise the same shape production runs.
         var rid = RuntimeInformation.RuntimeIdentifier;
         var configuration = TestProcessEnvironment.ReleaseBuildConfiguration;
-        SamplePublishedDir = Path.Combine(WebsitePublishedDir, "sample");
-        RichLibraryDll = Path.Combine(SamplePublishedDir, "RichLibrary.dll");
+        SamplePublishedDir = Path.Join(WebsitePublishedDir, "sample");
+        RichLibraryDll = Path.Join(SamplePublishedDir, "RichLibrary.dll");
 
-        var lockPath = Path.Combine(Path.GetTempPath(), "dotsider-build-sample-publish.lock");
+        var lockPath = Path.Join(Path.GetTempPath(), "dotsider-build-sample-publish.lock");
         FileStream lockFile;
         while (true)
         {
@@ -132,7 +128,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
             catch (IOException) { await Task.Delay(200); }
         }
 
-        try
+        using (lockFile)
         {
             // Clean the sample directory before publishing. `dotnet publish -o` is additive
             // — it overwrites files it emits but does not remove anything left behind. If a
@@ -163,10 +159,6 @@ internal class SampleAssemblyFixture : IAsyncDisposable
                 throw new InvalidOperationException(
                     $"Sample publish failed (exit {process.ExitCode}):\n{stdout}\n{stderr}");
         }
-        finally
-        {
-            lockFile.Dispose();
-        }
     }
 
     private static string GetRepoRoot()
@@ -174,7 +166,7 @@ internal class SampleAssemblyFixture : IAsyncDisposable
         var dir = AppContext.BaseDirectory;
         while (dir != null)
         {
-            if (File.Exists(Path.Combine(dir, "Dotsider.slnx")))
+            if (File.Exists(Path.Join(dir, "Dotsider.slnx")))
                 return dir;
             dir = Path.GetDirectoryName(dir);
         }

@@ -176,7 +176,9 @@ internal sealed class EventPipeRuntimeTracer(
         _cts = new CancellationTokenSource();
         _stopwatch = Stopwatch.StartNew();
         _diagnosticPort = CreateDiagnosticPort(out _diagnosticPortDirectory);
-        var connectCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+        using var connectOwner = new OwnedResource<CancellationTokenSource>(
+            CancellationTokenSource.CreateLinkedTokenSource(_cts.Token));
+        var connectCts = connectOwner.Value;
         connectCts.CancelAfter(ConnectTimeout);
         var connectorTask = DiagnosticsClientConnector.FromDiagnosticPort(_diagnosticPort, connectCts.Token);
 
@@ -199,7 +201,6 @@ internal sealed class EventPipeRuntimeTracer(
             }
 
             connectCts.Cancel();
-            connectCts.Dispose();
             MarkDirty();
             return;
         }
@@ -264,6 +265,7 @@ internal sealed class EventPipeRuntimeTracer(
         var providers = BuildProviders();
         _processingTask = Task.Factory.StartNew(async () =>
         {
+            using var processingCancellation = connectCts;
             try
             {
                 _connector = await connectorTask.ConfigureAwait(false);
@@ -302,7 +304,10 @@ internal sealed class EventPipeRuntimeTracer(
                 ProcessEventsLoop(session);
                 MarkEventProcessingComplete();
             }
-            catch (OperationCanceledException) when (_cts.IsCancellationRequested) { /* user cancelled */ }
+            catch (OperationCanceledException handledException) when (_cts.IsCancellationRequested)
+            { /* user cancelled */
+                System.Diagnostics.Trace.TraceInformation("Start: {0}", handledException);
+            }
             catch (OperationCanceledException)
             {
                 lock (_stateLock)
@@ -323,7 +328,7 @@ internal sealed class EventPipeRuntimeTracer(
                 // Expected: process exited (pipe broke) or user cancelled
                 MarkEventProcessingComplete();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or OperationCanceledException or TimeoutException or ServerNotAvailableException or ServerErrorException)
             {
                 lock (_stateLock)
                 {
@@ -333,13 +338,13 @@ internal sealed class EventPipeRuntimeTracer(
             }
             finally
             {
-                connectCts.Dispose();
                 DisposeDiagnosticConnector();
                 CleanupDiagnosticPort();
                 _stopwatch?.Stop();
                 _invalidate();
             }
         }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
+        connectOwner.Release();
     }
 
     /// <summary>Stops the traced process and event collection.</summary>
@@ -347,15 +352,27 @@ internal sealed class EventPipeRuntimeTracer(
     {
         _cts?.Cancel();
         _eventSource?.StopProcessing();
-        try { _session?.Stop(); } catch { }
+        try { _session?.Stop(); }
+        catch (Exception handledException) when (handledException is IOException or InvalidOperationException or OperationCanceledException or ServerNotAvailableException or ServerErrorException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Stop: {0}", handledException);
+        }
 
         if (_process is { HasExited: false } p)
         {
             // Process.Kill() sends SIGKILL on Unix, TerminateProcess on Windows.
             // Both are immediate and forceful. There is no cross-platform
             // graceful shutdown for arbitrary console processes.
-            try { p.Kill(entireProcessTree: true); } catch { }
-            try { p.WaitForExit(5000); } catch { }
+            try { p.Kill(entireProcessTree: true); }
+            catch (Exception handledException) when (handledException is InvalidOperationException or System.ComponentModel.Win32Exception or AggregateException)
+            {
+                System.Diagnostics.Trace.TraceInformation("Stop: {0}", handledException);
+            }
+            try { p.WaitForExit(5000); }
+            catch (Exception handledException) when (handledException is InvalidOperationException or System.ComponentModel.Win32Exception)
+            {
+                System.Diagnostics.Trace.TraceInformation("Stop: {0}", handledException);
+            }
         }
 
         var processingTask = _processingTask;
@@ -491,7 +508,7 @@ internal sealed class EventPipeRuntimeTracer(
             UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
         File.SetUnixFileMode(directory.FullName, privateDirectoryMode);
         directoryPath = directory.FullName;
-        return Path.Combine(directoryPath, "p");
+        return Path.Join(directoryPath, "p");
     }
 
     private void DisposeDiagnosticConnector()
@@ -500,7 +517,11 @@ internal sealed class EventPipeRuntimeTracer(
         if (connector is null)
             return;
 
-        try { connector.DisposeAsync().AsTask().GetAwaiter().GetResult(); } catch { }
+        try { connector.DisposeAsync().AsTask().GetAwaiter().GetResult(); }
+        catch (Exception handledException) when (handledException is IOException or InvalidOperationException or OperationCanceledException or ServerNotAvailableException or ServerErrorException)
+        {
+            System.Diagnostics.Trace.TraceInformation("DisposeDiagnosticConnector: {0}", handledException);
+        }
     }
 
     private void CleanupDiagnosticPort()
@@ -512,13 +533,20 @@ internal sealed class EventPipeRuntimeTracer(
         if (string.IsNullOrEmpty(diagnosticPort))
             return;
 
-        try { File.Delete(diagnosticPort); } catch { }
+        try { File.Delete(diagnosticPort); }
+        catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Trace.TraceInformation("CleanupDiagnosticPort: {0}", handledException);
+        }
         try
         {
             if (!string.IsNullOrEmpty(_diagnosticPortDirectory))
                 Directory.Delete(_diagnosticPortDirectory);
         }
-        catch { }
+        catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Trace.TraceInformation("CleanupDiagnosticPort: {0}", handledException);
+        }
 
         _diagnosticPort = null;
         _diagnosticPortDirectory = null;
@@ -683,6 +711,7 @@ internal sealed class EventPipeRuntimeTracer(
         try { source.Process(); }
         catch (Exception ex) when (ex is EndOfStreamException or IOException or ObjectDisposedException)
         {
+            System.Diagnostics.Trace.TraceInformation("ProcessEventsLoop: {0}", ex);
             // Expected: process exited, pipe broke
         }
         finally
@@ -758,11 +787,9 @@ internal sealed class EventPipeRuntimeTracer(
             if (TryGetDouble(payload, "Mean", out var meanValue))
                 _counterAccumulators[counterName] = meanValue;
         }
-        else if (counterType.Equals("Sum", StringComparison.OrdinalIgnoreCase))
-        {
-            if (TryGetDouble(payload, "Increment", out var incrementValue))
-                _counterAccumulators[counterName] = ReadCounter(counterName) + incrementValue;
-        }
+        else if (counterType.Equals("Sum", StringComparison.OrdinalIgnoreCase)
+            && TryGetDouble(payload, "Increment", out var incrementValue))
+            _counterAccumulators[counterName] = ReadCounter(counterName) + incrementValue;
 
         return BuildCounterSnapshot();
     }
@@ -894,7 +921,10 @@ internal sealed class EventPipeRuntimeTracer(
             if (line.Length > 0 || truncated)
                 PublishOutputLine(line, truncated, isStdErr, timer);
         }
-        catch (Exception) { /* stream closed */ }
+        catch (Exception handledException) when (handledException is IOException or ObjectDisposedException or OperationCanceledException)
+        { /* stream closed */
+            System.Diagnostics.Trace.TraceInformation("ReadOutput: {0}", handledException);
+        }
     }
 
     private void PublishOutputLine(
@@ -921,8 +951,9 @@ internal sealed class EventPipeRuntimeTracer(
             if (process is { HasExited: false })
                 process.Kill(entireProcessTree: true);
         }
-        catch
+        catch (Exception handledException) when (handledException is InvalidOperationException or System.ComponentModel.Win32Exception or AggregateException)
         {
+            System.Diagnostics.Trace.TraceInformation("TryKillProcessTree: {0}", handledException);
         }
     }
 

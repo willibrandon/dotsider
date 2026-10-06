@@ -28,8 +28,8 @@ public class AssemblyAnalyzerBenchmarks
     public void Setup()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        _coreLibPath = Path.Combine(runtimeDir, "System.Private.CoreLib.dll");
-        _xmlPath = Path.Combine(runtimeDir, "System.Private.Xml.dll");
+        _coreLibPath = Path.Join(runtimeDir, "System.Private.CoreLib.dll");
+        _xmlPath = Path.Join(runtimeDir, "System.Private.Xml.dll");
 
         if (!File.Exists(_coreLibPath))
             throw new FileNotFoundException($"BCL assembly not found: {_coreLibPath}");

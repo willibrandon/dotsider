@@ -5,7 +5,7 @@ namespace Dotsider.Infrastructure;
 /// </summary>
 internal sealed class SessionDiscovery
 {
-    private static string SocketDir => Path.Combine(
+    private static string SocketDir => Path.Join(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".dotsider", "sockets");
 
@@ -13,13 +13,13 @@ internal sealed class SessionDiscovery
     /// Returns the dotsider socket path for a given PID.
     /// </summary>
     public static string GetDotsiderSocketPath(int pid) =>
-        Path.Combine(SocketDir, $"{pid}.dotsider.socket");
+        Path.Join(SocketDir, $"{pid}.dotsider.socket");
 
     /// <summary>
     /// Returns the hex1b diagnostics socket path for a given PID.
     /// </summary>
     public static string GetHex1bSocketPath(int pid) =>
-        Path.Combine(
+        Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".hex1b", "sockets", $"{pid}.diagnostics.socket");
 

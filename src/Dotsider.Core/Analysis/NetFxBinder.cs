@@ -212,7 +212,7 @@ public static class NetFxBinder
             var token = BuildClr2Token(version, effective.Culture, pkt, isNeutral);
             foreach (var subdir in ctx.GacScanList())
             {
-                var candidate = Path.Combine(subdir, effective.Name, token, $"{effective.Name}.dll");
+                var candidate = Path.Join(subdir, effective.Name, token, $"{effective.Name}.dll");
                 caches.FilesystemProbeCount++;
                 if (File.Exists(candidate)) return candidate;
             }
@@ -226,7 +226,7 @@ public static class NetFxBinder
             : $"v4.0_{version}_{effective.Culture}__{pkt}";
         foreach (var subdir in ctx.GacScanList())
         {
-            var candidate = Path.Combine(subdir, effective.Name, net4Token, $"{effective.Name}.dll");
+            var candidate = Path.Join(subdir, effective.Name, net4Token, $"{effective.Name}.dll");
             caches.FilesystemProbeCount++;
             if (File.Exists(candidate)) return candidate;
         }
@@ -237,7 +237,7 @@ public static class NetFxBinder
         var legacyToken = BuildClr2Token(version, effective.Culture, pkt, isNeutral);
         foreach (var subdir in ctx.LegacyGacScanList())
         {
-            var candidate = Path.Combine(subdir, effective.Name, legacyToken, $"{effective.Name}.dll");
+            var candidate = Path.Join(subdir, effective.Name, legacyToken, $"{effective.Name}.dll");
             caches.FilesystemProbeCount++;
             if (File.Exists(candidate)) return candidate;
         }
@@ -252,7 +252,7 @@ public static class NetFxBinder
     {
         var dir = ctx.FrameworkRuntimeDirectory();
         if (dir is null) return null;
-        var candidate = Path.Combine(dir, $"{effective.Name}.dll");
+        var candidate = Path.Join(dir, $"{effective.Name}.dll");
         caches.FilesystemProbeCount++;
         if (!File.Exists(candidate)) return null;
         var actual = TryReadIdentity(candidate);
@@ -287,33 +287,33 @@ public static class NetFxBinder
 
     private static IEnumerable<string> NeutralAppBaseProbePaths(NetFxBindingContext ctx, string name)
     {
-        yield return Path.Combine(ctx.AppBaseDirectory, $"{name}.dll");
-        yield return Path.Combine(ctx.AppBaseDirectory, $"{name}.exe");
-        yield return Path.Combine(ctx.AppBaseDirectory, name, $"{name}.dll");
-        yield return Path.Combine(ctx.AppBaseDirectory, name, $"{name}.exe");
+        yield return Path.Join(ctx.AppBaseDirectory, $"{name}.dll");
+        yield return Path.Join(ctx.AppBaseDirectory, $"{name}.exe");
+        yield return Path.Join(ctx.AppBaseDirectory, name, $"{name}.dll");
+        yield return Path.Join(ctx.AppBaseDirectory, name, $"{name}.exe");
         foreach (var p in ctx.PrivatePaths)
         {
-            yield return Path.Combine(ctx.AppBaseDirectory, p, $"{name}.dll");
-            yield return Path.Combine(ctx.AppBaseDirectory, p, $"{name}.exe");
-            yield return Path.Combine(ctx.AppBaseDirectory, p, name, $"{name}.dll");
-            yield return Path.Combine(ctx.AppBaseDirectory, p, name, $"{name}.exe");
+            yield return Path.Join(ctx.AppBaseDirectory, p, $"{name}.dll");
+            yield return Path.Join(ctx.AppBaseDirectory, p, $"{name}.exe");
+            yield return Path.Join(ctx.AppBaseDirectory, p, name, $"{name}.dll");
+            yield return Path.Join(ctx.AppBaseDirectory, p, name, $"{name}.exe");
         }
     }
 
     private static IEnumerable<string> CulturedAppBaseProbePaths(NetFxBindingContext ctx, string name, string culture)
     {
-        yield return Path.Combine(ctx.AppBaseDirectory, culture, $"{name}.dll");
-        yield return Path.Combine(ctx.AppBaseDirectory, culture, $"{name}.exe");
-        yield return Path.Combine(ctx.AppBaseDirectory, culture, name, $"{name}.dll");
-        yield return Path.Combine(ctx.AppBaseDirectory, culture, name, $"{name}.exe");
-        yield return Path.Combine(ctx.AppBaseDirectory, culture, $"{name}.resources.dll");
+        yield return Path.Join(ctx.AppBaseDirectory, culture, $"{name}.dll");
+        yield return Path.Join(ctx.AppBaseDirectory, culture, $"{name}.exe");
+        yield return Path.Join(ctx.AppBaseDirectory, culture, name, $"{name}.dll");
+        yield return Path.Join(ctx.AppBaseDirectory, culture, name, $"{name}.exe");
+        yield return Path.Join(ctx.AppBaseDirectory, culture, $"{name}.resources.dll");
         foreach (var p in ctx.PrivatePaths)
         {
-            yield return Path.Combine(ctx.AppBaseDirectory, p, culture, $"{name}.dll");
-            yield return Path.Combine(ctx.AppBaseDirectory, p, culture, $"{name}.exe");
-            yield return Path.Combine(ctx.AppBaseDirectory, p, culture, name, $"{name}.dll");
-            yield return Path.Combine(ctx.AppBaseDirectory, p, culture, name, $"{name}.exe");
-            yield return Path.Combine(ctx.AppBaseDirectory, p, culture, $"{name}.resources.dll");
+            yield return Path.Join(ctx.AppBaseDirectory, p, culture, $"{name}.dll");
+            yield return Path.Join(ctx.AppBaseDirectory, p, culture, $"{name}.exe");
+            yield return Path.Join(ctx.AppBaseDirectory, p, culture, name, $"{name}.dll");
+            yield return Path.Join(ctx.AppBaseDirectory, p, culture, name, $"{name}.exe");
+            yield return Path.Join(ctx.AppBaseDirectory, p, culture, $"{name}.resources.dll");
         }
     }
 
@@ -335,7 +335,7 @@ public static class NetFxBinder
                 return null;
             }
         }
-        return Path.Combine(appBase, href.Replace('/', Path.DirectorySeparatorChar));
+        return Path.Join(appBase, href.Replace('/', Path.DirectorySeparatorChar));
     }
 
     private static (string Name, string Version, string Culture, string? PublicKeyToken)? TryReadIdentity(string path)
@@ -349,7 +349,7 @@ public static class NetFxBinder
                     analyzer.Culture ?? "neutral",
                     analyzer.PublicKeyToken);
         }
-        catch { return null; }
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException) { return null; }
     }
 
     private static bool IdentityMatches(

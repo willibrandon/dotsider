@@ -16,7 +16,7 @@ public sealed partial class ScriptConventionTests : IDisposable
     private static readonly ConcurrentDictionary<string, Lazy<bool>> s_builtFileApps = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Lock s_fileAppExecutionLock = new();
 
-    private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), "dotsider-script-tests", Guid.NewGuid().ToString("N"));
+    private readonly string _tempRoot = Path.Join(Path.GetTempPath(), "dotsider-script-tests", Guid.NewGuid().ToString("N"));
 
     /// <summary>
     /// Cleans up temporary script output.
@@ -37,9 +37,9 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void ScriptsReadme_DocumentsFileBasedAppWorkflow()
     {
         string root = FindRepositoryRoot();
-        string readme = File.ReadAllText(Path.Combine(root, "scripts", "README.md"));
-        string runTestsScript = File.ReadAllText(Path.Combine(root, "scripts", "Run-Tests.cs"));
-        string attributes = File.ReadAllText(Path.Combine(root, ".gitattributes"));
+        string readme = File.ReadAllText(Path.Join(root, "scripts", "README.md"));
+        string runTestsScript = File.ReadAllText(Path.Join(root, "scripts", "Run-Tests.cs"));
+        string attributes = File.ReadAllText(Path.Join(root, ".gitattributes"));
 
         Assert.Contains("dotnet run --file ./scripts/Capture-DisasmOracle.cs", readme);
         Assert.Contains("dotnet run --file ./scripts/Initialize-DevContainer.cs", readme);
@@ -68,11 +68,11 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void DevContainerConfiguration_ProvidesCompleteLinuxEnvironment()
     {
         string root = FindRepositoryRoot();
-        string configuration = File.ReadAllText(Path.Combine(root, ".devcontainer", "devcontainer.json"));
-        string dockerfile = File.ReadAllText(Path.Combine(root, ".devcontainer", "Dockerfile"));
-        string picketIgnore = File.ReadAllText(Path.Combine(root, ".devcontainer", "picket-image.ignore"));
-        string initializer = File.ReadAllText(Path.Combine(root, "scripts", "Initialize-DevContainer.cs"));
-        string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "dev-container.yml"));
+        string configuration = File.ReadAllText(Path.Join(root, ".devcontainer", "devcontainer.json"));
+        string dockerfile = File.ReadAllText(Path.Join(root, ".devcontainer", "Dockerfile"));
+        string picketIgnore = File.ReadAllText(Path.Join(root, ".devcontainer", "picket-image.ignore"));
+        string initializer = File.ReadAllText(Path.Join(root, "scripts", "Initialize-DevContainer.cs"));
+        string workflow = File.ReadAllText(Path.Join(root, ".github", "workflows", "dev-container.yml"));
         using JsonDocument configurationDocument = JsonDocument.Parse(configuration);
         JsonElement terminalEnvironment = configurationDocument.RootElement
             .GetProperty("customizations")
@@ -107,7 +107,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.DoesNotContain("docker-outside-of-docker", configuration);
         Assert.Contains("Demo__SampleAssembly", configuration);
         Assert.Contains("\"DOTSIDER_DEV_CONTAINER\": \"1\"", configuration);
-        string buildProperties = File.ReadAllText(Path.Combine(root, "Directory.Build.props"));
+        string buildProperties = File.ReadAllText(Path.Join(root, "Directory.Build.props"));
         Assert.Contains("<BaseOutputPath>bin/devcontainer/</BaseOutputPath>", buildProperties);
         Assert.Contains("<BaseIntermediateOutputPath>obj/devcontainer/</BaseIntermediateOutputPath>", buildProperties);
         Assert.Contains(
@@ -146,7 +146,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         Assert.Contains("VerifyCommand(\"ttyd\"", initializer);
         Assert.Contains("VerifyCommand(\"vhs\"", initializer);
         Assert.Contains("[\"CI\"] = \"true\"", initializer);
-        Assert.Contains("devcontainers/ci@v0.3", workflow);
+        Assert.Contains("uses: devcontainers/ci@", workflow);
         Assert.Contains("dotnet clean", workflow);
         Assert.Contains("dotnet build --no-restore", workflow);
         Assert.Contains("dotnet test --no-build", workflow);
@@ -177,7 +177,7 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void ContinuousIntegration_RunsFullSuiteOnLinuxArm64()
     {
         string root = FindRepositoryRoot();
-        string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
+        string workflow = File.ReadAllText(Path.Join(root, ".github", "workflows", "ci.yml"));
 
         Assert.Contains(
             "os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-26]",
@@ -193,7 +193,7 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void InitializeDevContainer_BuildsAndPrintsHelp()
     {
         string root = FindRepositoryRoot();
-        string scriptPath = Path.Combine(root, "scripts", "Initialize-DevContainer.cs");
+        string scriptPath = Path.Join(root, "scripts", "Initialize-DevContainer.cs");
 
         var (exitCode, stdout, _) = RunFileApp(root, scriptPath, "--help");
 
@@ -213,7 +213,7 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void NativeArchitectureOracleWorkflow_UsesCaptureAppAndRuntimeCrossImages()
     {
         string root = FindRepositoryRoot();
-        string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "native-arch-oracles.yml"));
+        string workflow = File.ReadAllText(Path.Join(root, ".github", "workflows", "native-arch-oracles.yml"));
 
         Assert.Contains("Capture-DisasmOracle.cs", workflow);
         Assert.Contains("dotnet workload install wasm-tools", workflow);
@@ -232,8 +232,8 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void CaptureDisasmOracle_BuildsAndCapturesFakeInput()
     {
         string root = FindRepositoryRoot();
-        string scriptPath = Path.Combine(root, "scripts", "Capture-DisasmOracle.cs");
-        string outputDirectory = Path.Combine(_tempRoot, "oracles");
+        string scriptPath = Path.Join(root, "scripts", "Capture-DisasmOracle.cs");
+        string outputDirectory = Path.Join(_tempRoot, "oracles");
 
         var (exitCode, _, _) = RunFileApp(
             root,
@@ -252,8 +252,8 @@ public sealed partial class ScriptConventionTests : IDisposable
             "--version");
 
         Assert.AreEqual(0, exitCode);
-        string stdoutPath = Path.Combine(outputDirectory, "README.test.oracle.txt");
-        string metadataPath = Path.Combine(outputDirectory, "README.test.oracle.json");
+        string stdoutPath = Path.Join(outputDirectory, "README.test.oracle.txt");
+        string metadataPath = Path.Join(outputDirectory, "README.test.oracle.json");
         Assert.IsTrue(File.Exists(stdoutPath), stdoutPath);
         Assert.IsTrue(File.Exists(metadataPath), metadataPath);
         Assert.IsFalse(string.IsNullOrWhiteSpace(File.ReadAllText(stdoutPath)));
@@ -275,8 +275,8 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void CaptureDisasmOracle_ExplicitRuntimeRoot_RecordsProvenance()
     {
         string root = FindRepositoryRoot();
-        string scriptPath = Path.Combine(root, "scripts", "Capture-DisasmOracle.cs");
-        string outputDirectory = Path.Combine(_tempRoot, "runtime-root-oracle");
+        string scriptPath = Path.Join(root, "scripts", "Capture-DisasmOracle.cs");
+        string outputDirectory = Path.Join(_tempRoot, "runtime-root-oracle");
 
         var (exitCode, _, _) = RunFileApp(
             root,
@@ -296,7 +296,7 @@ public sealed partial class ScriptConventionTests : IDisposable
 
         Assert.AreEqual(0, exitCode);
         using JsonDocument metadata = JsonDocument.Parse(
-            File.ReadAllText(Path.Combine(outputDirectory, "README.test.oracle.json")));
+            File.ReadAllText(Path.Join(outputDirectory, "README.test.oracle.json")));
         JsonElement metadataRoot = metadata.RootElement;
         Assert.AreEqual(root, metadataRoot.GetProperty("RuntimeRoot").GetString());
         Assert.IsFalse(string.IsNullOrWhiteSpace(
@@ -312,8 +312,8 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void CaptureDisasmOracle_TruncatesLargeOutput()
     {
         string root = FindRepositoryRoot();
-        string scriptPath = Path.Combine(root, "scripts", "Capture-DisasmOracle.cs");
-        string outputDirectory = Path.Combine(_tempRoot, "truncated-oracles");
+        string scriptPath = Path.Join(root, "scripts", "Capture-DisasmOracle.cs");
+        string outputDirectory = Path.Join(_tempRoot, "truncated-oracles");
 
         var (exitCode, _, _) = RunFileApp(
             root,
@@ -332,8 +332,8 @@ public sealed partial class ScriptConventionTests : IDisposable
             "--info");
 
         Assert.AreEqual(0, exitCode);
-        string stdout = File.ReadAllText(Path.Combine(outputDirectory, "README.test.oracle.txt"));
-        string metadata = File.ReadAllText(Path.Combine(outputDirectory, "README.test.oracle.json"));
+        string stdout = File.ReadAllText(Path.Join(outputDirectory, "README.test.oracle.txt"));
+        string metadata = File.ReadAllText(Path.Join(outputDirectory, "README.test.oracle.json"));
         Assert.Contains("[output truncated after 20 characters]", stdout);
         Assert.Contains("\"StdoutTruncated\": true", metadata);
     }
@@ -347,8 +347,8 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void CaptureDisasmOracle_AllowsOracleFailure()
     {
         string root = FindRepositoryRoot();
-        string scriptPath = Path.Combine(root, "scripts", "Capture-DisasmOracle.cs");
-        string outputDirectory = Path.Combine(_tempRoot, "failure-oracles");
+        string scriptPath = Path.Join(root, "scripts", "Capture-DisasmOracle.cs");
+        string outputDirectory = Path.Join(_tempRoot, "failure-oracles");
 
         var (exitCode, _, _) = RunFileApp(
             root,
@@ -366,9 +366,49 @@ public sealed partial class ScriptConventionTests : IDisposable
             "definitely-not-a-dotnet-command");
 
         Assert.AreEqual(0, exitCode);
-        string metadata = File.ReadAllText(Path.Combine(outputDirectory, "README.test.oracle.json"));
+        string metadata = File.ReadAllText(Path.Join(outputDirectory, "README.test.oracle.json"));
         Assert.Contains("\"OracleExitCode\":", metadata);
         Assert.DoesNotContain("\"OracleExitCode\": 0", metadata);
+    }
+
+    /// <summary>
+    /// CodeQL must fail for every finding, including notes and suppressed results, and for incomplete analysis.
+    /// </summary>
+    [TestMethod]
+    [DataRow("{\"runs\":[{\"results\":[]}]}", 0)]
+    [DataRow("{\"runs\":[{\"results\":[{\"ruleId\":\"test/rule\",\"level\":\"note\",\"message\":{\"text\":\"Finding\"}}]}]}", 1)]
+    [DataRow("{\"runs\":[{\"results\":[{\"suppressions\":[{\"kind\":\"inSource\"}]}]}]}", 1)]
+    [DataRow("{\"runs\":[]}", 1)]
+    [DataRow("{\"runs\":[{}]}", 1)]
+    [DataRow("{\"runs\":[{\"results\":[],\"invocations\":[{\"executionSuccessful\":false}]}]}", 1)]
+    [DataRow("invalid json", 1)]
+    public void VerifyCodeQl_RequiresCompleteAnalysisWithoutFindings(string sarif, int expectedExitCode)
+    {
+        string root = FindRepositoryRoot();
+        string results = Path.Join(_tempRoot, "codeql");
+        Directory.CreateDirectory(results);
+        File.WriteAllText(Path.Join(results, "test.sarif"), sarif);
+
+        var (exitCode, stdout, stderr) = RunFileApp(root, Path.Join(root, "scripts", "Verify-CodeQl.cs"), false, results);
+
+        if (expectedExitCode == 0)
+            Assert.AreEqual(0, exitCode, stderr);
+        else
+            Assert.AreNotEqual(0, exitCode, stdout);
+    }
+
+    /// <summary>
+    /// Missing scan output cannot be treated as a successful clean analysis.
+    /// </summary>
+    [TestMethod]
+    public void VerifyCodeQl_RejectsMissingResults()
+    {
+        string root = FindRepositoryRoot();
+        var (exitCode, _, stderr) = RunFileApp(root, Path.Join(root, "scripts", "Verify-CodeQl.cs"), false,
+            Path.Join(_tempRoot, "missing-codeql-results"));
+
+        Assert.AreNotEqual(0, exitCode);
+        Assert.Contains("no SARIF file", stderr);
     }
 
     /// <summary>
@@ -380,7 +420,7 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void RunTests_BuildsAndPrintsHelp()
     {
         string root = FindRepositoryRoot();
-        string scriptPath = Path.Combine(root, "scripts", "Run-Tests.cs");
+        string scriptPath = Path.Join(root, "scripts", "Run-Tests.cs");
 
         var (runExitCode, stdout, _) = RunFileApp(root, scriptPath, "-Help");
         Assert.AreEqual(0, runExitCode);
@@ -397,7 +437,7 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void VerifyNativeAot_BuildsAndPrintsHelp()
     {
         string root = FindRepositoryRoot();
-        string scriptPath = Path.Combine(root, "scripts", "Verify-NativeAot.cs");
+        string scriptPath = Path.Join(root, "scripts", "Verify-NativeAot.cs");
 
         var (exitCode, stdout, _) = RunFileApp(root, scriptPath, "-Help");
 
@@ -418,10 +458,10 @@ public sealed partial class ScriptConventionTests : IDisposable
     public void NativeAotWorkflows_UseFileBasedAppAndCorrectBuildEnvironments()
     {
         string root = FindRepositoryRoot();
-        string ciWorkflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
+        string ciWorkflow = File.ReadAllText(Path.Join(root, ".github", "workflows", "ci.yml"));
         string releaseWorkflow = File.ReadAllText(
-            Path.Combine(root, ".github", "workflows", "release.yml"));
-        string script = File.ReadAllText(Path.Combine(root, "scripts", "Verify-NativeAot.cs"));
+            Path.Join(root, ".github", "workflows", "release.yml"));
+        string script = File.ReadAllText(Path.Join(root, "scripts", "Verify-NativeAot.cs"));
         int jobStart = ciWorkflow.IndexOf("  native-aot:", StringComparison.Ordinal);
         int jobEnd = ciWorkflow.IndexOf("  ci-integration-packages:", jobStart, StringComparison.Ordinal);
 
@@ -492,7 +532,7 @@ public sealed partial class ScriptConventionTests : IDisposable
 
         foreach (string relativePath in relativePaths)
         {
-            string text = File.ReadAllText(Path.Combine(root, relativePath));
+            string text = File.ReadAllText(Path.Join(root, relativePath));
             Assert.IsTrue(HasThreeLineSummaryBeforeFirstType(text), relativePath);
         }
     }
@@ -502,7 +542,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Dotsider.slnx")))
+            if (File.Exists(Path.Join(directory.FullName, "Dotsider.slnx")))
             {
                 return directory.FullName;
             }
@@ -514,6 +554,9 @@ public sealed partial class ScriptConventionTests : IDisposable
     }
 
     private static (int ExitCode, string Stdout, string Stderr) RunDotnet(string workingDirectory, params string[] arguments)
+        => RunDotnet(workingDirectory, true, arguments);
+
+    private static (int ExitCode, string Stdout, string Stderr) RunDotnet(string workingDirectory, bool requireSuccess, params string[] arguments)
     {
         var startInfo = new ProcessStartInfo("dotnet")
         {
@@ -532,7 +575,7 @@ public sealed partial class ScriptConventionTests : IDisposable
         string stdout = process.StandardOutput.ReadToEnd();
         string stderr = process.StandardError.ReadToEnd();
         process.WaitForExit();
-        if (process.ExitCode != 0)
+        if (requireSuccess && process.ExitCode != 0)
         {
             throw new InvalidOperationException($"dotnet {string.Join(' ', arguments)} failed with exit code {process.ExitCode}.{Environment.NewLine}{stdout}{Environment.NewLine}{stderr}");
         }
@@ -541,6 +584,9 @@ public sealed partial class ScriptConventionTests : IDisposable
     }
 
     private static (int ExitCode, string Stdout, string Stderr) RunFileApp(string workingDirectory, string scriptPath, params string[] arguments)
+        => RunFileApp(workingDirectory, scriptPath, true, arguments);
+
+    private static (int ExitCode, string Stdout, string Stderr) RunFileApp(string workingDirectory, string scriptPath, bool requireSuccess, params string[] arguments)
     {
         lock (s_fileAppExecutionLock)
         {
@@ -555,7 +601,7 @@ public sealed partial class ScriptConventionTests : IDisposable
                 "--",
             };
             dotnetArguments.AddRange(arguments);
-            return RunDotnet(workingDirectory, [.. dotnetArguments]);
+            return RunDotnet(workingDirectory, requireSuccess, [.. dotnetArguments]);
         }
     }
 

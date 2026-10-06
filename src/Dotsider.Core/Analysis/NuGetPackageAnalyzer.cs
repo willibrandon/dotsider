@@ -331,11 +331,13 @@ public sealed class NuGetPackageAnalyzer : IDisposable
         {
             Directory.Delete(path, recursive: true);
         }
-        catch (IOException)
+        catch (IOException handledException)
         {
+            System.Diagnostics.Trace.TraceInformation("TryDeleteDirectory: {0}", handledException);
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException handledException)
         {
+            System.Diagnostics.Trace.TraceInformation("TryDeleteDirectory: {0}", handledException);
         }
     }
 
@@ -345,11 +347,13 @@ public sealed class NuGetPackageAnalyzer : IDisposable
         {
             File.Delete(path);
         }
-        catch (IOException)
+        catch (IOException handledException)
         {
+            System.Diagnostics.Trace.TraceInformation("TryDeleteFile: {0}", handledException);
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException handledException)
         {
+            System.Diagnostics.Trace.TraceInformation("TryDeleteFile: {0}", handledException);
         }
     }
 

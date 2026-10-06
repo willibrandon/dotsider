@@ -27,8 +27,8 @@ public class MstatDifferBenchmarks
 
         var v1Exe = BenchmarkHelpers.GetPublishPath("samples/NativeAotConsole", "NativeAotConsole");
         var v2Exe = BenchmarkHelpers.GetPublishPath("samples/NativeAotConsoleV2", "NativeAotConsole");
-        _left = ReadMstat(Path.Combine(Path.GetDirectoryName(v1Exe)!, "NativeAotConsole.mstat"));
-        _right = ReadMstat(Path.Combine(Path.GetDirectoryName(v2Exe)!, "NativeAotConsole.mstat"));
+        _left = ReadMstat(Path.Join(Path.GetDirectoryName(v1Exe)!, "NativeAotConsole.mstat"));
+        _right = ReadMstat(Path.Join(Path.GetDirectoryName(v2Exe)!, "NativeAotConsole.mstat"));
     }
 
     private static MstatData ReadMstat(string path) =>

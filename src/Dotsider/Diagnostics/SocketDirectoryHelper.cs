@@ -16,7 +16,7 @@ internal static class SocketDirectoryHelper
     /// </summary>
     public static string EnsureSocketDirectory()
     {
-        var dir = Path.Combine(
+        var dir = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".dotsider", "sockets");
 

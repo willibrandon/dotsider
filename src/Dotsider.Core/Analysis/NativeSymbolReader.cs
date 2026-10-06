@@ -177,11 +177,9 @@ public static class NativeSymbolReader
         if (dsymSlices is not null)
         {
             var dsymUuids = new List<byte[]>();
-            foreach (var dsymSlice in dsymSlices)
-            {
-                if (MachOImageReader.TryReadUuid(dsymSlice, out var uuid))
-                    dsymUuids.Add(uuid);
-            }
+            dsymUuids.AddRange(dsymSlices
+                .Select(dsymSlice => MachOImageReader.TryReadUuid(dsymSlice, out var uuid) ? uuid : null)
+                .OfType<byte[]>());
 
             for (var i = 0; i < slices.Count; i++)
             {
@@ -267,7 +265,7 @@ public static class NativeSymbolReader
     {
         var name = Path.GetFileName(imagePath);
         if (string.IsNullOrEmpty(name)) return null;
-        var inner = Path.Combine(imagePath + ".dSYM", "Contents", "Resources", "DWARF", name);
+        var inner = Path.Join(imagePath + ".dSYM", "Contents", "Resources", "DWARF", name);
         return File.Exists(inner) ? inner : null;
     }
 
@@ -310,15 +308,13 @@ public static class NativeSymbolReader
     private static (string? Section, long? FileOffset) MapMachOAddress(
         IReadOnlyList<MachOSection> sections, ulong va, long sliceShift)
     {
-        foreach (var section in sections)
-        {
-            if (section.Address == 0
+        foreach (var section in sections.Where(section => !(section.Address == 0
                 || section.Size <= 0
                 || section.FileOffset < 0
                 || section.Type is 0x1 or 0xC or 0x12
                 || sliceShift < 0
-                || va < section.Address)
-                continue;
+                || va < section.Address)))
+        {
 
             var delta = va - section.Address;
             if (delta >= (ulong)section.Size
@@ -428,14 +424,13 @@ public static class NativeSymbolReader
 
         var candidates = new List<string>(2);
         if (ElfImageReader.TryReadDebugLink(image, out var linkName, out _) && linkName.Length > 0)
-            candidates.Add(Path.Combine(directory, Path.GetFileName(linkName)));
-        var conventional = Path.Combine(directory, Path.GetFileNameWithoutExtension(imagePath) + ".dbg");
+            candidates.Add(Path.Join(directory, Path.GetFileName(linkName)));
+        var conventional = Path.Join(directory, Path.GetFileNameWithoutExtension(imagePath) + ".dbg");
         if (!candidates.Contains(conventional)) candidates.Add(conventional);
 
         (string, byte[], ElfSidecarMatch)? mismatch = null;
-        foreach (var candidate in candidates)
+        foreach (var candidate in candidates.Where(candidate => File.Exists(candidate)))
         {
-            if (!File.Exists(candidate)) continue;
             var bytes = File.ReadAllBytes(candidate);
             var match = ElfSidecarIdentity.Check(image, bytes);
             if (match != ElfSidecarMatch.Mismatched) return (candidate, bytes, match);
@@ -611,14 +606,13 @@ public static class NativeSymbolReader
 
         var candidates = new List<string>(2);
         if (!string.IsNullOrEmpty(id.PdbPath))
-            candidates.Add(Path.Combine(directory, Path.GetFileName(id.PdbPath)));
-        var conventional = Path.Combine(directory, Path.GetFileNameWithoutExtension(imagePath) + ".pdb");
+            candidates.Add(Path.Join(directory, Path.GetFileName(id.PdbPath)));
+        var conventional = Path.Join(directory, Path.GetFileNameWithoutExtension(imagePath) + ".pdb");
         if (!candidates.Contains(conventional)) candidates.Add(conventional);
 
         (PdbProbe, string?) firstDefect = (PdbProbe.None, null);
-        foreach (var path in candidates)
+        foreach (var path in candidates.Where(path => File.Exists(path)))
         {
-            if (!File.Exists(path)) continue;
             if (!NativePdb.NativePdbReader.TryReadPdbId(path, out var guid, out var age))
             {
                 if (firstDefect.Item1 == PdbProbe.None) firstDefect = (PdbProbe.Unreadable, path);

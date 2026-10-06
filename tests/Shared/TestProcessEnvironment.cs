@@ -85,8 +85,8 @@ internal static class TestProcessEnvironment
         string configuration,
         string targetFramework) =>
         IsDevelopmentContainer
-            ? Path.Combine(projectDirectory, "bin", "devcontainer", configuration, targetFramework)
-            : Path.Combine(projectDirectory, "bin", configuration, targetFramework);
+            ? Path.Join(projectDirectory, "bin", "devcontainer", configuration, targetFramework)
+            : Path.Join(projectDirectory, "bin", configuration, targetFramework);
 
     /// <summary>
     /// Determines whether a fixture output is newer than the source project and shared build inputs.
@@ -151,11 +151,9 @@ internal static class TestProcessEnvironment
             "global.json",
             "NuGet.config",
         ];
-        foreach (string inputName in sharedInputNames)
+        foreach (var inputPath in sharedInputNames.Select(inputName => Path.Join(repositoryRoot, inputName)).Where(File.Exists))
         {
-            string inputPath = Path.Combine(repositoryRoot, inputName);
-            if (File.Exists(inputPath))
-                yield return inputPath;
+            yield return inputPath;
         }
     }
 

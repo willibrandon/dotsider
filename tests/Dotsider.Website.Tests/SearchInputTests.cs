@@ -21,6 +21,8 @@ public class SearchInputTests : IAsyncDisposable
     private WebSocket? _clientWs;
     private Socket? _serverSocket;
     private Socket? _clientSocket;
+    private NetworkStream? _clientStream;
+    private NetworkStream? _serverStream;
     private WebSocketPresentationAdapter? _presentation;
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
@@ -35,7 +37,7 @@ public class SearchInputTests : IAsyncDisposable
     /// </summary>
     private async Task<(WebSocket client, WebSocket server)> CreateWebSocketPairAsync()
     {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
 
@@ -45,11 +47,11 @@ public class SearchInputTests : IAsyncDisposable
         await connectTask;
         listener.Stop();
 
-        var clientStream = new NetworkStream(_clientSocket, ownsSocket: false);
-        var serverStream = new NetworkStream(_serverSocket, ownsSocket: false);
+        _clientStream = new NetworkStream(_clientSocket, ownsSocket: false);
+        _serverStream = new NetworkStream(_serverSocket, ownsSocket: false);
 
-        _serverWs = WebSocket.CreateFromStream(serverStream, new WebSocketCreationOptions { IsServer = true });
-        _clientWs = WebSocket.CreateFromStream(clientStream, new WebSocketCreationOptions { IsServer = false });
+        _serverWs = WebSocket.CreateFromStream(_serverStream, new WebSocketCreationOptions { IsServer = true });
+        _clientWs = WebSocket.CreateFromStream(_clientStream, new WebSocketCreationOptions { IsServer = false });
 
         return (_clientWs, _serverWs);
     }
@@ -137,7 +139,11 @@ public class SearchInputTests : IAsyncDisposable
         _appCts.Cancel();
         drainCts.Cancel();
         await StopRunTaskAsync();
-        try { await drainTask; } catch { }
+        try { await drainTask; }
+        catch (Exception handledException) when (handledException is OperationCanceledException or TimeoutException or ObjectDisposedException or System.Net.WebSockets.WebSocketException)
+        {
+            System.Diagnostics.Trace.TraceInformation("SearchInput_ViaWebSocket_CharactersReachSearchBar: {0}", handledException);
+        }
     }
 
     private static async Task DrainOutputAsync(WebSocket ws, StringBuilder output, CancellationToken ct)
@@ -155,8 +161,14 @@ public class SearchInputTests : IAsyncDisposable
                 }
             }
         }
-        catch (OperationCanceledException) { }
-        catch (WebSocketException) { }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("DrainOutputAsync: {0}", handledException);
+        }
+        catch (WebSocketException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("DrainOutputAsync: {0}", handledException);
+        }
     }
 
     private static async Task WaitForOutputAsync(
@@ -198,16 +210,20 @@ public class SearchInputTests : IAsyncDisposable
     /// </summary>
     private async Task StopRunTaskAsync()
     {
-        if (_runTask == null) return;
-
         _appCts?.Cancel();
 
         // Kill the underlying TCP sockets to break any non-cancellable WebSocket reads
+        _clientStream?.Dispose();
+        _serverStream?.Dispose();
         _clientSocket?.Dispose();
         _serverSocket?.Dispose();
 
+        if (_runTask is null) return;
         try { await _runTask.WaitAsync(TimeSpan.FromSeconds(2)); }
-        catch { }
+        catch (Exception handledException) when (handledException is OperationCanceledException or TimeoutException or ObjectDisposedException or System.Net.WebSockets.WebSocketException)
+        {
+            System.Diagnostics.Trace.TraceInformation("StopRunTaskAsync: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -227,7 +243,10 @@ public class SearchInputTests : IAsyncDisposable
         if (_presentation != null)
         {
             try { await _presentation.DisposeAsync(); }
-            catch { }
+            catch (Exception handledException) when (handledException is OperationCanceledException or TimeoutException or ObjectDisposedException or System.Net.WebSockets.WebSocketException)
+            {
+                System.Diagnostics.Trace.TraceInformation("DisposeAsync: {0}", handledException);
+            }
         }
 
         _clientWs?.Dispose();

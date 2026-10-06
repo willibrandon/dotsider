@@ -115,6 +115,6 @@ public sealed class RemoteDotsiderTargetVersionTests(TestContext testContext)
 
     private static string GetUniqueSocketPath()
     {
-        return Path.Combine(Path.GetTempPath(), $"mp-{Guid.NewGuid():N}");
+        return Path.Join(Path.GetTempPath(), $"mp-{Guid.NewGuid():N}");
     }
 }

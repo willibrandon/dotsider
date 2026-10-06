@@ -173,9 +173,8 @@ internal static class ClassicReadyToRunDetector
 
         // Crossgen2 native images use CoreCLR's IMAGE_FILE_MACHINE_NATIVE_NI encoding on Unix:
         // IMAGE_FILE_MACHINE_NATIVE ^ IMAGE_FILE_MACHINE_NATIVE_OS_OVERRIDE (pedecoder.h).
-        foreach (var osOverride in NativeImageMachineOsOverrides)
+        foreach (var decoded in NativeImageMachineOsOverrides.Select(osOverride => MapPlainMachine((ushort)(machine ^ osOverride))))
         {
-            var decoded = MapPlainMachine((ushort)(machine ^ osOverride));
             if (decoded != NativeArchitecture.Unknown)
                 return decoded;
         }

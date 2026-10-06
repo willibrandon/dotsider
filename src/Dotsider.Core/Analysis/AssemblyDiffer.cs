@@ -74,11 +74,8 @@ public static class AssemblyDiffer
             }
         }
 
-        foreach (var rt in right)
-        {
-            if (!leftByName.ContainsKey(rt.FullName))
-                result.Add(new DiffEntry<TypeDefInfo>(DiffKind.Added, null, rt, "added"));
-        }
+        foreach (var rt in right.Where(rt => !leftByName.ContainsKey(rt.FullName)))
+            result.Add(new DiffEntry<TypeDefInfo>(DiffKind.Added, null, rt, "added"));
 
         return [.. result.OrderBy(d => d.Kind).ThenBy(d => (d.Left ?? d.Right)!.FullName)];
     }
@@ -167,11 +164,8 @@ public static class AssemblyDiffer
             }
         }
 
-        foreach (var rr in right)
-        {
-            if (!leftByName.ContainsKey(rr.Name))
-                result.Add(new DiffEntry<AssemblyRefInfo>(DiffKind.Added, null, rr, "added"));
-        }
+        foreach (var rr in right.Where(rr => !leftByName.ContainsKey(rr.Name)))
+            result.Add(new DiffEntry<AssemblyRefInfo>(DiffKind.Added, null, rr, "added"));
 
         return [.. result.OrderBy(d => d.Kind).ThenBy(d => (d.Left ?? d.Right)!.Name)];
     }
@@ -382,7 +376,7 @@ public static class AssemblyDiffer
                                 MetadataTokens.UserStringHandle(rightToken & 0x00FFFFFF));
                             if (leftStr != rightStr) return true;
                         }
-                        catch
+                        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
                         {
                             if (leftToken != rightToken) return true;
                         }

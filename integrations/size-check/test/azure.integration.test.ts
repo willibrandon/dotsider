@@ -40,6 +40,29 @@ test("Azure handler emits outputs from a real comparison", async () => {
   assert.notEqual(report.summary.delta, 0);
 });
 
+test("Azure default reports use a separate private directory for each invocation", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-azure-private-"));
+  try {
+    const roots = new Set<string>();
+    for (let invocation = 0; invocation < 2; invocation++) {
+      const result = await runAzure(directory, { baseline }, undefined, {
+        INPUT_REPORT_DIRECTORY: "",
+        BUILD_ARTIFACTSTAGINGDIRECTORY: directory,
+      });
+      assert.equal(result.exitCode, 0, result.stdout + result.stderr);
+      const reportPath = outputValue(result.stdout, "jsonReportPath");
+      assert.equal((await fs.stat(reportPath)).isFile(), true);
+      const privateRoot = path.dirname(path.dirname(reportPath));
+      assert.equal(path.dirname(privateRoot), directory);
+      if (process.platform !== "win32") assert.equal((await fs.stat(privateRoot)).mode & 0o777, 0o700);
+      roots.add(privateRoot);
+    }
+    assert.equal(roots.size, 2);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("Azure handler publishes real reports before a budget failure", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-azure-fail-"));
   const result = await runAzure(directory, {

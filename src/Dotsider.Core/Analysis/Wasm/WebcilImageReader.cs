@@ -576,10 +576,8 @@ internal sealed class WebcilImageReader
     {
         offset = 0;
         available = 0;
-        foreach (WebcilSection section in sections)
+        foreach (WebcilSection section in sections.Where(section => rva >= section.VirtualAddress))
         {
-            if (rva < section.VirtualAddress)
-                continue;
 
             uint delta = rva - section.VirtualAddress;
             if (delta >= section.VirtualSize || delta >= section.SizeOfRawData)

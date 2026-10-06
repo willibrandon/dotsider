@@ -453,9 +453,9 @@ public sealed class DotsiderApp(DotsiderState state)
                     }
                     // Priority 4: IL selection clear (only when no navigation targets)
                     else if (_state.CurrentTab == TabId.IlInspector
-                        && _state.IlEditorState?.Cursor.HasSelection == true)
+                        && _state.IlEditorState is { Cursor.HasSelection: true } editor)
                     {
-                        _state.IlEditorState.Cursor.SelectionAnchor = null;
+                        editor.Cursor.SelectionAnchor = null;
                         _state.App.Invalidate();
                     }
                 }), "Back");
@@ -782,16 +782,9 @@ public sealed class DotsiderApp(DotsiderState state)
                 hints.Add(s.Section("y: Yank"));
 
             // iw/iW hint — show when a read-only editor is focused (not hex dump)
-            try
-            {
-                if (_state.App.FocusedNode is EditorNode
+            if (_state.App.FocusedNode is EditorNode
                     && _state.CurrentTab != TabId.HexDump)
-                    hints.Add(s.Section("V: Line | iw: Word | iW: WORD"));
-            }
-            catch (NullReferenceException)
-            {
-                // Focus ring not yet initialized
-            }
+                hints.Add(s.Section("V: Line | iw: Word | iW: WORD"));
 
             hints.Add(s.Spacer());
 
@@ -855,7 +848,7 @@ public sealed class DotsiderApp(DotsiderState state)
             newBytes = state.HexEditorState.Document.GetBytes().ToArray();
             File.WriteAllBytes(tempPath, newBytes);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
         {
             state.HexNotification = $"Save failed: {ex.Message}";
             return;
@@ -865,9 +858,13 @@ public sealed class DotsiderApp(DotsiderState state)
         {
             using var validator = new AssemblyAnalyzer(tempPath);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
-            try { File.Delete(tempPath); } catch { }
+            try { File.Delete(tempPath); }
+            catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+            {
+                System.Diagnostics.Trace.TraceInformation("SaveHexChanges: {0}", handledException);
+            }
             state.HexNotification = $"Cannot save: invalid image — {ex.Message}";
             return;
         }
@@ -881,7 +878,7 @@ public sealed class DotsiderApp(DotsiderState state)
         // Move temp → original. If move fails, the file is still at tempPath.
         string savedPath;
         try { File.Move(tempPath, filePath, overwrite: true); savedPath = filePath; }
-        catch { savedPath = tempPath; }
+        catch (Exception caughtException) when (caughtException is System.IO.IOException or UnauthorizedAccessException) { savedPath = tempPath; }
 
         // Try reopening from the saved path, then alt path, then recovery.
         string[] candidates =
@@ -929,7 +926,10 @@ public sealed class DotsiderApp(DotsiderState state)
 
                 return (new AssemblyAnalyzer(path), path);
             }
-            catch { /* try next candidate */ }
+            catch (Exception handledException) when (handledException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
+            { /* try next candidate */
+                System.Diagnostics.Trace.TraceInformation("ReopenOrFallback: {0}", handledException);
+            }
         }
 
         return (new AssemblyAnalyzer(recoveryBytes, filePath), null);

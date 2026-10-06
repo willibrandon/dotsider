@@ -326,7 +326,7 @@ public sealed class IlDisassembler(AssemblyAnalyzer analyzer)
             var s = _reader.GetUserString(handle);
             return s.Length > 60 ? $"\"{s[..60]}...\"" : $"\"{s}\"";
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return $"0x{token:X8}";
         }

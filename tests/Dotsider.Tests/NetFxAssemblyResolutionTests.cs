@@ -35,16 +35,16 @@ public sealed class NetFxAssemblyResolutionTests : IDisposable
         var ctx = NetFxBindingContext.TryBuild(analyzer);
         Assert.IsNotNull(ctx);
 
-        var requested = new AssemblyRefInfo("Newtonsoft.Json", "12.0.0.0", "neutral", "30ad4fe6b2a6aeed");
+        var requested = new AssemblyRefInfo("NetFxBindingRedirects.Clr2.SharedDep", "1.0.0.0", "neutral", "e89d2d22dd26920d");
         var resolution = AssemblyAnalyzer.ResolveAssemblyByIdentity(
             Samples.NetFxBindingRedirectsExe!, requested,
             analyzer.TargetFramework, analyzer.PreferredRuntimePack, analyzer.SourceBundlePath, ctx);
 
         Assert.IsNotNull(resolution.Resolved);
         Assert.IsNotNull(resolution.AppliedPolicy);
-        Assert.AreEqual(new Version(13, 0, 0, 0), resolution.AppliedPolicy!.BoundVersion);
+        Assert.AreEqual(new Version(2, 0, 0, 0), resolution.AppliedPolicy!.BoundVersion);
         Assert.IsNotNull(resolution.LoadedIdentity);
-        Assert.AreEqual("13.0.0.0", resolution.LoadedIdentity!.Version);
+        Assert.AreEqual("2.0.0.0", resolution.LoadedIdentity!.Version);
     }
 
     /// <summary>
@@ -87,19 +87,19 @@ public sealed class NetFxAssemblyResolutionTests : IDisposable
         Assert.IsNotNull(ctx);
 
         var resolved = ImplementationAssemblyResolver.Resolve(
-            Samples.NetFxBindingRedirectsExe!, "Newtonsoft.Json",
+            Samples.NetFxBindingRedirectsExe!, "NetFxBindingRedirects.Clr2.SharedDep",
             declaringType: null,
             analyzer.TargetFramework, analyzer.PreferredRuntimePack, analyzer.SourceBundlePath,
             ctx, analyzer);
         Assert.IsNotNull(resolved);
         var fromFile = Assert.IsExactInstanceOfType<ResolvedAssembly.FromFile>(resolved);
-        Assert.AreEqual("Newtonsoft.Json.dll", Path.GetFileName(fromFile.Path));
+        Assert.AreEqual("NetFxBindingRedirects.Clr2.SharedDep.dll", Path.GetFileName(fromFile.Path));
     }
 
     /// <summary>
     /// DependencyGraphBuilder.Build for a net48 root produces no Unresolved/IdentityMismatch
     /// leaves for assemblies whose oracle says the CLR loaded them, and collapses two requested
-    /// versions of Newtonsoft.Json onto a single graph node keyed on the bound identity.
+    /// versions of NetFxBindingRedirects.Clr2.SharedDep onto a single graph node keyed on the bound identity.
     /// </summary>
     [TestMethod]
     [Timeout(30_000, CooperativeCancellation = true)]
@@ -110,18 +110,18 @@ public sealed class NetFxAssemblyResolutionTests : IDisposable
         using var analyzer = new AssemblyAnalyzer(Samples.NetFxBindingRedirectsExe!);
         var graph = DependencyGraphBuilder.Build(analyzer);
 
-        // The Newtonsoft.Json node should appear exactly once even though OldDep references
-        // 12.0.0.0 and NewDep references 13.0.0.0 — both redirect to 13.0.0.0.
-        var newtonsoftNodes = graph.Nodes.Where(n => n.Name == "Newtonsoft.Json").ToList();
-        Assert.ContainsSingle(newtonsoftNodes);
-        Assert.AreEqual("13.0.0.0", newtonsoftNodes[0].Version);
+        // The NetFxBindingRedirects.Clr2.SharedDep node should appear exactly once even though OldDep references
+        // 1.0.0.0 and NewDep references 2.0.0.0 — both redirect to 2.0.0.0.
+        var sharedDepNodes = graph.Nodes.Where(n => n.Name == "NetFxBindingRedirects.Clr2.SharedDep").ToList();
+        Assert.ContainsSingle(sharedDepNodes);
+        Assert.AreEqual("2.0.0.0", sharedDepNodes[0].Version);
 
-        // No Newtonsoft.Json node should be Unresolved or carry IdentityMismatch.
-        Assert.IsFalse(newtonsoftNodes[0].Unresolved);
+        // No NetFxBindingRedirects.Clr2.SharedDep node should be Unresolved or carry IdentityMismatch.
+        Assert.IsFalse(sharedDepNodes[0].Unresolved);
         Assert.AreNotEqual(AssemblyProvenance.IdentityMismatch,
-            graph.NavigationById[newtonsoftNodes[0].Id].Provenance);
+            graph.NavigationById[sharedDepNodes[0].Id].Provenance);
         Assert.AreNotEqual(AssemblyProvenance.Unresolved,
-            graph.NavigationById[newtonsoftNodes[0].Id].Provenance);
+            graph.NavigationById[sharedDepNodes[0].Id].Provenance);
 
         // mscorlib should resolve to the framework runtime directory and be classified framework.
         var mscorlib = graph.Nodes.FirstOrDefault(n => n.Name == "mscorlib");
@@ -133,8 +133,8 @@ public sealed class NetFxAssemblyResolutionTests : IDisposable
     }
 
     /// <summary>
-    /// At least one edge into the redirected Newtonsoft.Json node carries a per-edge
-    /// RequestedIdentity recording the pre-redirect version (12.0.0.0 from OldDep).
+    /// At least one edge into the redirected NetFxBindingRedirects.Clr2.SharedDep node carries a per-edge
+    /// RequestedIdentity recording the pre-redirect version (1.0.0.0 from OldDep).
     /// </summary>
     [TestMethod]
     [Timeout(30_000, CooperativeCancellation = true)]
@@ -145,10 +145,10 @@ public sealed class NetFxAssemblyResolutionTests : IDisposable
         using var analyzer = new AssemblyAnalyzer(Samples.NetFxBindingRedirectsExe!);
         var graph = DependencyGraphBuilder.Build(analyzer);
 
-        var newtonsoftNode = graph.Nodes.Single(n => n.Name == "Newtonsoft.Json");
-        var edges = graph.Edges.Where(e => e.TargetId == newtonsoftNode.Id).ToList();
+        var sharedDepNode = graph.Nodes.Single(n => n.Name == "NetFxBindingRedirects.Clr2.SharedDep");
+        var edges = graph.Edges.Where(e => e.TargetId == sharedDepNode.Id).ToList();
         Assert.IsNotEmpty(edges);
-        Assert.Contains(e => e.RequestedIdentity is { Version: "12.0.0.0" }, edges);
+        Assert.Contains(e => e.RequestedIdentity is { Version: "1.0.0.0" }, edges);
     }
 
     private static void SkipIfNotWindows()

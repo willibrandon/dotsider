@@ -71,7 +71,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
             "Initial focus should be on table, not editor");
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Browser_InitialFocusOnFirstDllRow: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -95,8 +99,7 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is EditorNode; }
-                catch (NullReferenceException) { return false; }
+                return _state!.App.FocusedNode is EditorNode;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -106,14 +109,17 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is not EditorNode; }
-                catch (NullReferenceException) { return false; }
+                return _state is not null && _state.App.FocusedNode is not EditorNode;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Browser_TabTogglesFocus: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -164,7 +170,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Browser_YankOnDllRow_ShowsNotificationAndFlash: {0}", handledException);
+        }
     }
 
     // --- DLL inspector ---
@@ -208,7 +218,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
         Assert.AreEqual(savedKey, _state.FileTreeFocusedKey);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("DrillInto_SavesFocusedKey_EscRestores: {0}", handledException);
+        }
     }
 
     // --- Child input routing ---
@@ -253,7 +267,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
         Assert.AreEqual(tabBefore, dllState.CurrentTab);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("ChildSearch_DigitsDoNotSwitchTabs: {0}", handledException);
+        }
     }
 
     // --- Hex Escape chain ---
@@ -317,7 +335,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("HexDump_EscFromNormalMode_ReturnsToPackage: {0}", handledException);
+        }
     }
 
     // --- Yank timer race ---
@@ -361,7 +383,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
         Assert.IsTrue(_state!.IsBrowsingPackage);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("YankTimerRace_LeaveDllBeforeFlashClears_NoException: {0}", handledException);
+        }
     }
 
     // --- Package Info editor yank ---
@@ -383,8 +409,7 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is EditorNode; }
-                catch (NullReferenceException) { return false; }
+                return _state!.App.FocusedNode is EditorNode;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -407,7 +432,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
         Assert.IsNotNull(_state!.YankNotification);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("PackageInfo_SelectionYank_Works: {0}", handledException);
+        }
     }
 
     // --- Package Info double-click selection + yank ---
@@ -487,7 +516,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
         Assert.IsNotNull(_state!.YankNotification);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("PackageInfo_DoubleClickWordSelectionYank_Works: {0}", handledException);
+        }
     }
 
     // --- DLL inspector editor yank ---
@@ -512,8 +545,7 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is EditorNode; }
-                catch (NullReferenceException) { return false; }
+                return _state!.App.FocusedNode is EditorNode;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -529,7 +561,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("DllInspector_EditorYank_Works: {0}", handledException);
+        }
     }
 
     // --- Hex jump dialog ---
@@ -584,7 +620,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
         Assert.IsFalse(_state.IsBrowsingPackage, "Should still be in DLL inspector after closing dialog");
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("HexJumpDialog_DigitsGoIntoInput_EscCloses: {0}", handledException);
+        }
     }
 
     // --- Child input suppression: q/y ---
@@ -629,7 +669,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
         Assert.Contains("q", dllState.Search[dllState.CurrentTab].Query ?? "");
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("ChildSearch_QDoesNotQuit: {0}", handledException);
+        }
     }
 
     // --- Full hex Esc chain: insert → search dismiss → back to package ---
@@ -711,7 +755,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("HexEscChain_InsertThenSearchThenBack: {0}", handledException);
+        }
     }
 
     // --- Child input suppression: y ---
@@ -758,7 +806,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
         Assert.IsNull(_state.YankNotification);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("ChildSearch_YDoesNotYank: {0}", handledException);
+        }
     }
 
     // --- DLL inspector row yank flash ---
@@ -797,7 +849,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("DllInspector_RowYank_FlashSetsAndClears: {0}", handledException);
+        }
     }
 
     /// <summary>
@@ -817,8 +873,7 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                try { return _state!.App.FocusedNode is EditorNode; }
-                catch (NullReferenceException) { return false; }
+                return _state!.App.FocusedNode is EditorNode;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -838,7 +893,11 @@ public class NuGetModeYankIntegrationTests : IDisposable
         Assert.DoesNotContain("\n", yankedText);
 
         _cts!.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("PackageInfo_YY_YanksCurrentLine: {0}", handledException);
+        }
     }
 
     /// <summary>

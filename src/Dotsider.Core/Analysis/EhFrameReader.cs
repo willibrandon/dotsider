@@ -75,7 +75,7 @@ internal static class EhFrameReader
 
                 if (id == 0)
                 {
-                    cieEncodings[entryStart] = ReadCieEncoding(data, position, (int)next);
+                    cieEncodings[entryStart] = ReadCieEncoding(data, position, next);
                 }
                 else if (cieEncodings.TryGetValue(idPosition - id, out var encoding)
                     && TryReadFdeBoundary(data, position, encoding, ehFrame.Address, out var va, out var size)
@@ -270,6 +270,7 @@ internal static class EhFrameReader
     {
         while ((data[position++] & 0x80) != 0)
         {
+            // Consume continuation bytes until the ULEB128 terminator.
         }
     }
 

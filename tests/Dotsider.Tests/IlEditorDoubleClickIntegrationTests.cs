@@ -255,7 +255,7 @@ public class IlEditorDoubleClickIntegrationTests : IDisposable
             .WaitUntil(_ =>
             {
                 var es = _state.IlEditorState;
-                if (es?.Cursor.HasSelection != true) return false;
+                if (es is not { Cursor.HasSelection: true }) return false;
                 var text = es.Document.GetText();
                 var pos = es.Cursor.Position.Value;
                 return pos < text.Length && char.IsLetterOrDigit(text[pos]);

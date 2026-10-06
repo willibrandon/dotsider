@@ -752,9 +752,9 @@ public class StandardModeViewTests(TestContext testContext) : IDisposable
     public async Task Tab5_CtrlS_SavesWithCorrectFileName()
     {
         // Work on a disposable copy so we don't modify the shared fixture assembly
-        var tempDir = Path.Combine(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
+        var tempDir = Path.Join(Path.GetTempPath(), $"dotsider-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
-        var tempDll = Path.Combine(tempDir, "HelloWorld.dll");
+        var tempDll = Path.Join(tempDir, "HelloWorld.dll");
         File.Copy(Samples.HelloWorldDll, tempDll);
 
         try
@@ -800,7 +800,11 @@ public class StandardModeViewTests(TestContext testContext) : IDisposable
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try { Directory.Delete(tempDir, recursive: true); }
+            catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+            {
+                System.Diagnostics.Trace.TraceInformation("Tab5_CtrlS_SavesWithCorrectFileName: {0}", handledException);
+            }
         }
     }
 
@@ -920,7 +924,7 @@ public class StandardModeViewTests(TestContext testContext) : IDisposable
 
         var graph = _state!.CachedGraph;
         Assert.IsNotNull(graph);
-        var clientNodes = graph.Value.Nodes
+        var clientNodes = TestAssert.HasValue(graph).Nodes
             .Where(n => n.Name == "Microsoft.Diagnostics.NETCore.Client")
             .ToList();
         var clientNode = Assert.ContainsSingle(clientNodes);
@@ -976,8 +980,8 @@ public class StandardModeViewTests(TestContext testContext) : IDisposable
 
         var graph = _state!.CachedGraph;
         Assert.IsNotNull(graph);
-        Assert.IsGreaterThan(0, graph.Value.Nodes.Count);
-        Assert.IsGreaterThan(0, graph.Value.Edges.Count);
+        Assert.IsGreaterThan(0, TestAssert.HasValue(graph).Nodes.Count);
+        Assert.IsGreaterThan(0, TestAssert.HasValue(graph).Edges.Count);
 
         cts.Cancel();
         await runTask;
@@ -1298,13 +1302,13 @@ public class StandardModeViewTests(TestContext testContext) : IDisposable
         Assert.IsFalse(_state!.DepGraphHideFramework);
         var graph = _state.CachedGraph;
         Assert.IsNotNull(graph);
-        var rootId = graph.Value.Nodes.First(n => n.IsRoot).Id;
+        var rootId = TestAssert.HasValue(graph).Nodes.First(n => n.IsRoot).Id;
         var navigation = _state.GraphNavigation;
         Assert.IsNotNull(navigation);
         Assert.Contains(
             n => navigation.TryGetValue(n.Id, out var context)
                 && context.IsFrameworkAssembly,
-            graph.Value.Nodes);
+            TestAssert.HasValue(graph).Nodes);
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.F)
@@ -1315,7 +1319,7 @@ public class StandardModeViewTests(TestContext testContext) : IDisposable
 
         Assert.IsTrue(_state.DepGraphHideFramework);
         // Root id is still in the cached graph after toggle (underlying graph not rebuilt).
-        Assert.Contains(n => n.Id == rootId && n.IsRoot, graph.Value.Nodes);
+        Assert.Contains(n => n.Id == rootId && n.IsRoot, TestAssert.HasValue(graph).Nodes);
 
         cts.Cancel();
         await runTask;
@@ -2029,7 +2033,7 @@ public class StandardModeViewTests(TestContext testContext) : IDisposable
     public async Task Tab6_End_PreLayout_IsNoOp_PostLayout_ScrollsToBottom()
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
-        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll, initialTab: (int)TabId.DepGraph);
+        var (terminal, app) = CreateDotsiderApp(Samples.RichLibraryDll, initialTab: TabId.DepGraph);
         var runTask = app.RunAsync(cts.Token);
         await Task.Delay(100, cts.Token);
 

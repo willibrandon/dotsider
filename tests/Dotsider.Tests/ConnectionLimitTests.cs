@@ -1,3 +1,4 @@
+using Dotsider.Core.Analysis;
 using Dotsider.Core.Protocol;
 using Dotsider.Diagnostics;
 using Dotsider.Infrastructure;
@@ -79,7 +80,10 @@ public sealed class ConnectionLimitTests : IAsyncDisposable
         if (_appTask is not null)
         {
             try { await _appTask; }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException handledException)
+            {
+                System.Diagnostics.Trace.TraceInformation("DisposeAsync: {0}", handledException);
+            }
         }
         _state?.Dispose();
         _app?.Dispose();
@@ -122,13 +126,14 @@ public sealed class ConnectionLimitTests : IAsyncDisposable
         _listener!.TestDelayHook = () => holdOpen.Task;
 
         // Open 4 connections that will hold slots
+        using var heldResources = new OwnedResources<IDisposable>();
         var heldSockets = new List<(Socket socket, StreamWriter writer)>();
         for (var i = 0; i < 4; i++)
         {
-            var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            var socket = heldResources.Add(new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified));
             await socket.ConnectAsync(new UnixDomainSocketEndPoint(socketPath), ct);
-            var stream = new NetworkStream(socket, ownsSocket: false);
-            var writer = new StreamWriter(stream, leaveOpen: true) { AutoFlush = true };
+            var stream = heldResources.Add(new NetworkStream(socket, ownsSocket: false));
+            var writer = heldResources.Add(new StreamWriter(stream, leaveOpen: true) { AutoFlush = true });
             var json = JsonSerializer.Serialize(
                 new DotsiderRequest { Method = "assembly-info" }, DotsiderJsonContext.Protocol.Options);
             await writer.WriteLineAsync(json.AsMemory(), ct);
@@ -175,13 +180,14 @@ public sealed class ConnectionLimitTests : IAsyncDisposable
         var holdOpen = new TaskCompletionSource();
         _listener!.TestDelayHook = () => holdOpen.Task;
 
+        using var heldResources = new OwnedResources<IDisposable>();
         var heldSockets = new List<(Socket socket, StreamWriter writer)>();
         for (var i = 0; i < 4; i++)
         {
-            var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            var socket = heldResources.Add(new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified));
             await socket.ConnectAsync(new UnixDomainSocketEndPoint(socketPath), ct);
-            var stream = new NetworkStream(socket, ownsSocket: false);
-            var writer = new StreamWriter(stream, leaveOpen: true) { AutoFlush = true };
+            var stream = heldResources.Add(new NetworkStream(socket, ownsSocket: false));
+            var writer = heldResources.Add(new StreamWriter(stream, leaveOpen: true) { AutoFlush = true });
             var json = JsonSerializer.Serialize(
                 new DotsiderRequest { Method = "assembly-info" }, DotsiderJsonContext.Protocol.Options);
             await writer.WriteLineAsync(json.AsMemory(), ct);

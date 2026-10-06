@@ -33,9 +33,8 @@ public static class SizeBudgetParser
         long? maxGrowthBytes = null;
         double? maxGrowthPercent = null;
 
-        foreach (var raw in limits.Split(','))
+        foreach (var limit in limits.Split(',').Select(raw => raw.Trim()))
         {
-            var limit = raw.Trim();
             if (limit.StartsWith("max=", StringComparison.OrdinalIgnoreCase))
             {
                 var value = limit[4..];

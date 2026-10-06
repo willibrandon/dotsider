@@ -73,14 +73,13 @@ internal static class MetadataNestingWalker
                 return Finish(default, ChainTermination.InvalidMetadata);
             }
 
-            RetainName(
+            (firstNamespace, firstName, restNames, outermostNamespace) = RetainName(
                 depth,
                 namespaceName,
                 name,
-                ref firstNamespace,
-                ref firstName,
-                ref restNames,
-                ref outermostNamespace);
+                firstNamespace,
+                firstName,
+                restNames);
 
             if (definition.IsNested && !definition.Namespace.IsNil)
             {
@@ -187,14 +186,13 @@ internal static class MetadataNestingWalker
                 return Finish(default, ChainTermination.InvalidMetadata);
             }
 
-            RetainName(
+            (firstNamespace, firstName, restNames, outermostNamespace) = RetainName(
                 depth,
                 namespaceName,
                 name,
-                ref firstNamespace,
-                ref firstName,
-                ref restNames,
-                ref outermostNamespace);
+                firstNamespace,
+                firstName,
+                restNames);
 
             if (scope.Kind == HandleKind.TypeReference && !reference.Namespace.IsNil)
             {
@@ -301,14 +299,13 @@ internal static class MetadataNestingWalker
                 return Finish(default, ChainTermination.InvalidMetadata);
             }
 
-            RetainName(
+            (firstNamespace, firstName, restNames, outermostNamespace) = RetainName(
                 depth,
                 namespaceName,
                 name,
-                ref firstNamespace,
-                ref firstName,
-                ref restNames,
-                ref outermostNamespace);
+                firstNamespace,
+                firstName,
+                restNames);
 
             if (implementation.Kind == HandleKind.ExportedType && !exportedType.Namespace.IsNil)
             {
@@ -515,14 +512,13 @@ internal static class MetadataNestingWalker
         return row > 0 && row <= rowCount;
     }
 
-    private static void RetainName(
+    private static (string FirstNamespace, string FirstName, List<string>? RestNames, string OutermostNamespace) RetainName(
         int depth,
         string namespaceName,
         string name,
-        ref string firstNamespace,
-        ref string firstName,
-        ref List<string>? restNames,
-        ref string outermostNamespace)
+        string firstNamespace,
+        string firstName,
+        List<string>? restNames)
     {
         if (depth == 0)
         {
@@ -534,7 +530,7 @@ internal static class MetadataNestingWalker
             (restNames ??= []).Add(name);
         }
 
-        outermostNamespace = namespaceName;
+        return (firstNamespace, firstName, restNames, namespaceName);
     }
 
     private static bool TryFormatName<THandle>(

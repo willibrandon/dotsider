@@ -105,7 +105,7 @@ public sealed class NuGetDepsJsonResolverTests
         var sandbox = Directory.CreateTempSubdirectory("dotsider-deps-safe-").FullName;
         try
         {
-            var packageRoot = Directory.CreateDirectory(Path.Combine(sandbox, "packages")).FullName;
+            var packageRoot = Directory.CreateDirectory(Path.Join(sandbox, "packages")).FullName;
             var expectedPath = CopyRichLibrary(
                 packageRoot,
                 "contoso.library",
@@ -146,7 +146,7 @@ public sealed class NuGetDepsJsonResolverTests
         var sandbox = Directory.CreateTempSubdirectory("dotsider-deps-fallback-").FullName;
         try
         {
-            var packageRoot = Directory.CreateDirectory(Path.Combine(sandbox, "packages")).FullName;
+            var packageRoot = Directory.CreateDirectory(Path.Join(sandbox, "packages")).FullName;
             var expectedPath = CopyRichLibrary(
                 packageRoot,
                 "contoso.library",
@@ -188,12 +188,12 @@ public sealed class NuGetDepsJsonResolverTests
         try
         {
             var packageRoot = Directory.CreateDirectory(
-                Path.Combine(sandbox, "cache", "packages")).FullName;
+                Path.Join(sandbox, "cache", "packages")).FullName;
             var outsidePackage = Directory.CreateDirectory(
-                Path.Combine(sandbox, "outside-package")).FullName;
+                Path.Join(sandbox, "outside-package")).FullName;
             File.Copy(
                 Samples.RichLibraryDll,
-                Path.Combine(outsidePackage, "RichLibrary.dll"));
+                Path.Join(outsidePackage, "RichLibrary.dll"));
             var referencePath = CreateReference(sandbox);
             var traversal = Path.GetRelativePath(packageRoot, outsidePackage)
                 .Replace(Path.DirectorySeparatorChar, '/');
@@ -226,12 +226,12 @@ public sealed class NuGetDepsJsonResolverTests
         var sandbox = Directory.CreateTempSubdirectory("dotsider-deps-asset-traversal-").FullName;
         try
         {
-            var packageRoot = Directory.CreateDirectory(Path.Combine(sandbox, "packages")).FullName;
+            var packageRoot = Directory.CreateDirectory(Path.Join(sandbox, "packages")).FullName;
             var selectedPackage = Directory.CreateDirectory(
-                Path.Combine(packageRoot, "selected", "1.0.0")).FullName;
+                Path.Join(packageRoot, "selected", "1.0.0")).FullName;
             var siblingPackage = Directory.CreateDirectory(
-                Path.Combine(packageRoot, "sibling", "1.0.0")).FullName;
-            var outsidePath = Path.Combine(siblingPackage, "RichLibrary.dll");
+                Path.Join(packageRoot, "sibling", "1.0.0")).FullName;
+            var outsidePath = Path.Join(siblingPackage, "RichLibrary.dll");
             File.Copy(Samples.RichLibraryDll, outsidePath);
             var referencePath = CreateReference(sandbox);
             var traversal = Path.GetRelativePath(selectedPackage, outsidePath)
@@ -278,7 +278,7 @@ public sealed class NuGetDepsJsonResolverTests
         var sandbox = Directory.CreateTempSubdirectory("dotsider-deps-package-path-").FullName;
         try
         {
-            var packageRoot = Directory.CreateDirectory(Path.Combine(sandbox, "packages")).FullName;
+            var packageRoot = Directory.CreateDirectory(Path.Join(sandbox, "packages")).FullName;
             var referencePath = CreateReference(sandbox);
             WriteDepsJson(
                 referencePath,
@@ -322,8 +322,8 @@ public sealed class NuGetDepsJsonResolverTests
         var sandbox = Directory.CreateTempSubdirectory("dotsider-deps-asset-path-").FullName;
         try
         {
-            var packageRoot = Directory.CreateDirectory(Path.Combine(sandbox, "packages")).FullName;
-            Directory.CreateDirectory(Path.Combine(packageRoot, "hostile.package", "1.0.0"));
+            var packageRoot = Directory.CreateDirectory(Path.Join(sandbox, "packages")).FullName;
+            Directory.CreateDirectory(Path.Join(packageRoot, "hostile.package", "1.0.0"));
             var referencePath = CreateReference(sandbox);
             WriteDepsJson(
                 referencePath,
@@ -354,14 +354,14 @@ public sealed class NuGetDepsJsonResolverTests
         var sandbox = Directory.CreateTempSubdirectory("dotsider-deps-package-link-").FullName;
         try
         {
-            var packageRoot = Directory.CreateDirectory(Path.Combine(sandbox, "packages")).FullName;
+            var packageRoot = Directory.CreateDirectory(Path.Join(sandbox, "packages")).FullName;
             var outsidePackage = Directory.CreateDirectory(
-                Path.Combine(sandbox, "outside-package")).FullName;
+                Path.Join(sandbox, "outside-package")).FullName;
             File.Copy(
                 Samples.RichLibraryDll,
-                Path.Combine(outsidePackage, "RichLibrary.dll"));
+                Path.Join(outsidePackage, "RichLibrary.dll"));
             Directory.CreateSymbolicLink(
-                Path.Combine(packageRoot, "linked-package"),
+                Path.Join(packageRoot, "linked-package"),
                 outsidePackage);
             var referencePath = CreateReference(sandbox);
             WriteDepsJson(
@@ -392,15 +392,15 @@ public sealed class NuGetDepsJsonResolverTests
         var sandbox = Directory.CreateTempSubdirectory("dotsider-deps-asset-link-").FullName;
         try
         {
-            var packageRoot = Directory.CreateDirectory(Path.Combine(sandbox, "packages")).FullName;
+            var packageRoot = Directory.CreateDirectory(Path.Join(sandbox, "packages")).FullName;
             var packageDirectory = Directory.CreateDirectory(
-                Path.Combine(packageRoot, "linked.package", "1.0.0")).FullName;
+                Path.Join(packageRoot, "linked.package", "1.0.0")).FullName;
             var outsideDirectory = Directory.CreateDirectory(
-                Path.Combine(sandbox, "outside")).FullName;
-            var outsidePath = Path.Combine(outsideDirectory, "RichLibrary.dll");
+                Path.Join(sandbox, "outside")).FullName;
+            var outsidePath = Path.Join(outsideDirectory, "RichLibrary.dll");
             File.Copy(Samples.RichLibraryDll, outsidePath);
             File.CreateSymbolicLink(
-                Path.Combine(packageDirectory, "RichLibrary.dll"),
+                Path.Join(packageDirectory, "RichLibrary.dll"),
                 outsidePath);
             var referencePath = CreateReference(sandbox);
             WriteDepsJson(
@@ -433,17 +433,17 @@ public sealed class NuGetDepsJsonResolverTests
         try
         {
             var physicalRoot = Directory.CreateDirectory(
-                Path.Combine(sandbox, "physical-packages")).FullName;
-            var linkedRoot = Path.Combine(sandbox, "linked-packages");
+                Path.Join(sandbox, "physical-packages")).FullName;
+            var linkedRoot = Path.Join(sandbox, "linked-packages");
             Directory.CreateSymbolicLink(linkedRoot, physicalRoot);
             var packageDirectory = Directory.CreateDirectory(
-                Path.Combine(physicalRoot, "linked.package", "1.0.0")).FullName;
+                Path.Join(physicalRoot, "linked.package", "1.0.0")).FullName;
             var physicalLibrary = Directory.CreateDirectory(
-                Path.Combine(packageDirectory, "physical-lib")).FullName;
-            var expectedPath = Path.Combine(physicalLibrary, "RichLibrary.dll");
+                Path.Join(packageDirectory, "physical-lib")).FullName;
+            var expectedPath = Path.Join(physicalLibrary, "RichLibrary.dll");
             File.Copy(Samples.RichLibraryDll, expectedPath);
             Directory.CreateSymbolicLink(
-                Path.Combine(packageDirectory, "lib"),
+                Path.Join(packageDirectory, "lib"),
                 physicalLibrary);
             var referencePath = CreateReference(sandbox);
             WriteDepsJson(
@@ -459,7 +459,7 @@ public sealed class NuGetDepsJsonResolverTests
                     [linkedRoot]));
 
             Assert.AreEqual(
-                Path.GetFullPath(Path.Combine(
+                Path.GetFullPath(Path.Join(
                     linkedRoot,
                     "linked.package",
                     "1.0.0",
@@ -484,11 +484,11 @@ public sealed class NuGetDepsJsonResolverTests
         var sandbox = Directory.CreateTempSubdirectory("dotsider-deps-root-order-").FullName;
         try
         {
-            var firstRoot = Directory.CreateDirectory(Path.Combine(sandbox, "first")).FullName;
-            var secondRoot = Directory.CreateDirectory(Path.Combine(sandbox, "second")).FullName;
-            var outsidePackage = Directory.CreateDirectory(Path.Combine(sandbox, "outside")).FullName;
+            var firstRoot = Directory.CreateDirectory(Path.Join(sandbox, "first")).FullName;
+            var secondRoot = Directory.CreateDirectory(Path.Join(sandbox, "second")).FullName;
+            var outsidePackage = Directory.CreateDirectory(Path.Join(sandbox, "outside")).FullName;
             Directory.CreateSymbolicLink(
-                Path.Combine(firstRoot, "ordered.package"),
+                Path.Join(firstRoot, "ordered.package"),
                 outsidePackage);
             var expectedPath = CopyRichLibrary(
                 secondRoot,
@@ -527,18 +527,18 @@ public sealed class NuGetDepsJsonResolverTests
         var sandbox = Directory.CreateTempSubdirectory("dotsider-deps-broken-links-").FullName;
         try
         {
-            var packageRoot = Directory.CreateDirectory(Path.Combine(sandbox, "packages")).FullName;
+            var packageRoot = Directory.CreateDirectory(Path.Join(sandbox, "packages")).FullName;
             var packageDirectory = Directory.CreateDirectory(
-                Path.Combine(packageRoot, "broken.package", "1.0.0")).FullName;
+                Path.Join(packageRoot, "broken.package", "1.0.0")).FullName;
             File.CreateSymbolicLink(
-                Path.Combine(packageDirectory, "Broken.dll"),
-                Path.Combine(packageDirectory, "missing.dll"));
+                Path.Join(packageDirectory, "Broken.dll"),
+                Path.Join(packageDirectory, "missing.dll"));
             File.CreateSymbolicLink(
-                Path.Combine(packageDirectory, "CycleA.dll"),
-                Path.Combine(packageDirectory, "CycleB.dll"));
+                Path.Join(packageDirectory, "CycleA.dll"),
+                Path.Join(packageDirectory, "CycleB.dll"));
             File.CreateSymbolicLink(
-                Path.Combine(packageDirectory, "CycleB.dll"),
-                Path.Combine(packageDirectory, "CycleA.dll"));
+                Path.Join(packageDirectory, "CycleB.dll"),
+                Path.Join(packageDirectory, "CycleA.dll"));
             var referencePath = CreateReference(sandbox);
 
             WriteDepsJson(
@@ -579,7 +579,7 @@ public sealed class NuGetDepsJsonResolverTests
         var sandbox = Directory.CreateTempSubdirectory("dotsider-deps-malformed-").FullName;
         try
         {
-            var packageRoot = Directory.CreateDirectory(Path.Combine(sandbox, "packages")).FullName;
+            var packageRoot = Directory.CreateDirectory(Path.Join(sandbox, "packages")).FullName;
             var referencePath = CreateReference(sandbox);
             var depsJsonPath = Path.ChangeExtension(referencePath, ".deps.json");
             File.WriteAllText(depsJsonPath, "{");
@@ -625,16 +625,16 @@ public sealed class NuGetDepsJsonResolverTests
     private static string CopyRichLibrary(string packageRoot, params string[] segments)
     {
         var directory = Directory.CreateDirectory(
-            Path.Combine([packageRoot, .. segments])).FullName;
-        var targetPath = Path.Combine(directory, "RichLibrary.dll");
+            Path.Join([packageRoot, .. segments])).FullName;
+        var targetPath = Path.Join(directory, "RichLibrary.dll");
         File.Copy(Samples.RichLibraryDll, targetPath);
         return targetPath;
     }
 
     private static string CreateReference(string sandbox)
     {
-        var directory = Directory.CreateDirectory(Path.Combine(sandbox, "app")).FullName;
-        var referencePath = Path.Combine(directory, "Host.dll");
+        var directory = Directory.CreateDirectory(Path.Join(sandbox, "app")).FullName;
+        var referencePath = Path.Join(directory, "Host.dll");
         File.WriteAllBytes(referencePath, []);
         return referencePath;
     }

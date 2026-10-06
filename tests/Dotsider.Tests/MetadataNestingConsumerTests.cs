@@ -142,8 +142,8 @@ public sealed class MetadataNestingConsumerTests
             var suffix = Guid.NewGuid().ToString("N");
             var facadeName = "CyclicFacade" + suffix;
             var targetName = "ForwardTarget" + suffix;
-            var facadePath = Path.Combine(directory, facadeName + ".dll");
-            var targetPath = Path.Combine(directory, targetName + ".dll");
+            var facadePath = Path.Join(directory, facadeName + ".dll");
+            var targetPath = Path.Join(directory, targetName + ".dll");
             File.WriteAllBytes(
                 facadePath,
                 MetadataNestingConsumerMetadata.BuildCyclicFacade(
@@ -176,8 +176,8 @@ public sealed class MetadataNestingConsumerTests
             var suffix = Guid.NewGuid().ToString("N");
             var facadeName = "NonForwardFacade" + suffix;
             var targetName = "UnusedTarget" + suffix;
-            var facadePath = Path.Combine(directory, facadeName + ".dll");
-            var targetPath = Path.Combine(directory, targetName + ".dll");
+            var facadePath = Path.Join(directory, facadeName + ".dll");
+            var targetPath = Path.Join(directory, targetName + ".dll");
             File.WriteAllBytes(
                 facadePath,
                 MetadataNestingConsumerMetadata.BuildCyclicFacade(
@@ -231,8 +231,8 @@ public sealed class MetadataNestingConsumerTests
             const string moduleName = "Owned.netmodule";
             const string targetFramework = ".NETCoreApp,Version=v10.0";
             const string preferredRuntimePack = "Microsoft.NETCore.App";
-            var manifestPath = Path.Combine(directory, assemblyName + ".dll");
-            var modulePath = Path.Combine(directory, moduleName);
+            var manifestPath = Path.Join(directory, assemblyName + ".dll");
+            var modulePath = Path.Join(directory, moduleName);
             var moduleBytes = MetadataNestingConsumerMetadata.BuildSiblingModule(moduleName);
             var manifestBytes = MetadataNestingConsumerMetadata.BuildSiblingModuleManifest(
                 assemblyName,
@@ -330,8 +330,8 @@ public sealed class MetadataNestingConsumerTests
             var suffix = Guid.NewGuid().ToString("N");
             var assemblyName = "NestedModuleManifest" + suffix;
             const string moduleName = "Nested.netmodule";
-            var manifestPath = Path.Combine(directory, assemblyName + ".dll");
-            var modulePath = Path.Combine(directory, moduleName);
+            var manifestPath = Path.Join(directory, assemblyName + ".dll");
+            var modulePath = Path.Join(directory, moduleName);
             var moduleBytes = MetadataNestingConsumerMetadata.BuildNestedSiblingModule(moduleName);
             File.WriteAllBytes(
                 manifestPath,
@@ -417,7 +417,7 @@ public sealed class MetadataNestingConsumerTests
             {
                 var suffix = Guid.NewGuid().ToString("N");
                 var assemblyName = "UnsafeModuleManifest" + suffix;
-                var manifestPath = Path.Combine(directory, assemblyName + ".dll");
+                var manifestPath = Path.Join(directory, assemblyName + ".dll");
                 var moduleBytes = MetadataNestingConsumerMetadata.BuildSiblingModule("Owned.netmodule");
                 File.WriteAllBytes(
                     manifestPath,
@@ -457,8 +457,8 @@ public sealed class MetadataNestingConsumerTests
         {
             var suffix = Guid.NewGuid().ToString("N");
             var assemblyName = "UnconventionalModuleManifest" + suffix;
-            var manifestPath = Path.Combine(directory, assemblyName + ".dll");
-            var modulePath = Path.Combine(directory, moduleName);
+            var manifestPath = Path.Join(directory, assemblyName + ".dll");
+            var modulePath = Path.Join(directory, moduleName);
             var moduleBytes = MetadataNestingConsumerMetadata.BuildSiblingModule(moduleName);
             File.WriteAllBytes(
                 manifestPath,
@@ -494,17 +494,17 @@ public sealed class MetadataNestingConsumerTests
         var directory = CreateTemporaryDirectory();
         try
         {
-            var manifestDirectory = Path.Combine(directory, "manifest");
-            var externalDirectory = Path.Combine(directory, "external");
+            var manifestDirectory = Path.Join(directory, "manifest");
+            var externalDirectory = Path.Join(directory, "external");
             Directory.CreateDirectory(manifestDirectory);
             Directory.CreateDirectory(externalDirectory);
 
             var suffix = Guid.NewGuid().ToString("N");
             var assemblyName = "LinkedModuleManifest" + suffix;
             const string moduleName = "Owned.netmodule";
-            var manifestPath = Path.Combine(manifestDirectory, assemblyName + ".dll");
-            var linkedModulePath = Path.Combine(manifestDirectory, moduleName);
-            var targetModulePath = Path.Combine(externalDirectory, moduleName);
+            var manifestPath = Path.Join(manifestDirectory, assemblyName + ".dll");
+            var linkedModulePath = Path.Join(manifestDirectory, moduleName);
+            var targetModulePath = Path.Join(externalDirectory, moduleName);
             var moduleBytes = MetadataNestingConsumerMetadata.BuildSiblingModule(moduleName);
             File.WriteAllBytes(
                 manifestPath,
@@ -539,7 +539,7 @@ public sealed class MetadataNestingConsumerTests
             var suffix = Guid.NewGuid().ToString("N");
             var facadeName = "AmbiguousFacade" + suffix;
             var targetName = "AmbiguousTarget" + suffix;
-            var facadePath = Path.Combine(directory, facadeName + ".dll");
+            var facadePath = Path.Join(directory, facadeName + ".dll");
             File.WriteAllBytes(
                 facadePath,
                 MetadataNestingConsumerMetadata.BuildAmbiguousOwnershipFacade(
@@ -548,7 +548,7 @@ public sealed class MetadataNestingConsumerTests
                     includeTypeDefinition,
                     exportedTypeCount));
             File.WriteAllBytes(
-                Path.Combine(directory, targetName + ".dll"),
+                Path.Join(directory, targetName + ".dll"),
                 MetadataNestingConsumerMetadata.BuildTargetAssembly(targetName));
 
             var resolved = ImplementationAssemblyResolver.Resolve(
@@ -573,8 +573,8 @@ public sealed class MetadataNestingConsumerTests
             var suffix = Guid.NewGuid().ToString("N");
             var assemblyName = "InvalidModuleManifest" + suffix;
             const string moduleName = "Owned.netmodule";
-            var manifestPath = Path.Combine(directory, assemblyName + ".dll");
-            var modulePath = Path.Combine(directory, moduleName);
+            var manifestPath = Path.Join(directory, assemblyName + ".dll");
+            var modulePath = Path.Join(directory, moduleName);
             var moduleBytes = writeMode switch
             {
                 "assembly" => MetadataNestingConsumerMetadata.BuildSiblingModule(
@@ -647,7 +647,7 @@ public sealed class MetadataNestingConsumerTests
 
     private static string CreateTemporaryDirectory()
     {
-        var directory = Path.Combine(
+        var directory = Path.Join(
             Path.GetTempPath(), "dotsider-metadata-consumers-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         return directory;

@@ -109,9 +109,8 @@ internal sealed class NativeAddressSpace
     /// <returns>True when the address maps into file-backed data.</returns>
     public bool TryGetFileOffset(ulong virtualAddress, out int fileOffset, out int available)
     {
-        foreach (var segment in _segments)
+        foreach (var segment in _segments.Where(segment => virtualAddress >= segment.VirtualAddress))
         {
-            if (virtualAddress < segment.VirtualAddress) continue;
             var delta = virtualAddress - segment.VirtualAddress;
             if (delta >= (ulong)segment.FileSize) continue;
 
@@ -133,12 +132,8 @@ internal sealed class NativeAddressSpace
     /// <returns>True when the offset belongs to a validated file-backed segment.</returns>
     public bool TryGetAvailableBytes(int fileOffset, out int available)
     {
-        foreach (var segment in _segments)
+        foreach (var segment in _segments.Where(segment => fileOffset >= segment.FileOffset))
         {
-            if (fileOffset < segment.FileOffset)
-            {
-                continue;
-            }
 
             var delta = fileOffset - segment.FileOffset;
             if (delta >= segment.FileSize)

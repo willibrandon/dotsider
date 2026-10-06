@@ -81,7 +81,7 @@ internal static class SessionsCommand
 
             return response;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Net.Sockets.SocketException or OperationCanceledException or System.Text.Json.JsonException)
         {
             OutputFormatter.WriteError($"Error: Could not connect to PID {pid}: {ex.Message}");
             return null;
@@ -171,23 +171,23 @@ internal static class SessionsCommand
             }
             else
             {
-                var info = infoResponse.Data;
+                var info = infoResponse.Data ?? default;
                 var view = viewResponse.Data;
 
                 formatter.WriteLine($"PID:        {pid}");
-                formatter.WriteLine($"File:       {info?.GetPropertyOrNull("fileName")?.GetString() ?? "unknown"}");
-                formatter.WriteLine($"Assembly:   {info?.GetPropertyOrNull("assemblyName")?.GetString() ?? ""}");
-                formatter.WriteLine($"Version:    {info?.GetPropertyOrNull("assemblyVersion")?.GetString() ?? ""}");
-                formatter.WriteLine($"Framework:  {info?.GetPropertyOrNull("targetFramework")?.GetString() ?? ""}");
-                formatter.WriteLine($"Arch:       {info?.GetPropertyOrNull("architecture")?.GetString() ?? ""}");
-                formatter.WriteLine($"Types:      {info?.GetPropertyOrNull("typeCount")?.GetInt32() ?? 0}");
-                formatter.WriteLine($"Methods:    {info?.GetPropertyOrNull("methodCount")?.GetInt32() ?? 0}");
+                formatter.WriteLine($"File:       {info.GetPropertyOrNull("fileName")?.GetString() ?? "unknown"}");
+                formatter.WriteLine($"Assembly:   {info.GetPropertyOrNull("assemblyName")?.GetString() ?? ""}");
+                formatter.WriteLine($"Version:    {info.GetPropertyOrNull("assemblyVersion")?.GetString() ?? ""}");
+                formatter.WriteLine($"Framework:  {info.GetPropertyOrNull("targetFramework")?.GetString() ?? ""}");
+                formatter.WriteLine($"Arch:       {info.GetPropertyOrNull("architecture")?.GetString() ?? ""}");
+                formatter.WriteLine($"Types:      {info.GetPropertyOrNull("typeCount")?.GetInt32() ?? 0}");
+                formatter.WriteLine($"Methods:    {info.GetPropertyOrNull("methodCount")?.GetInt32() ?? 0}");
                 formatter.WriteLine("");
-                var displayName = info?.GetPropertyOrNull("displayName")?.GetString();
-                if (displayName is not null && displayName != info?.GetPropertyOrNull("fileName")?.GetString())
+                var displayName = info.GetPropertyOrNull("displayName")?.GetString();
+                if (displayName is not null && displayName != info.GetPropertyOrNull("fileName")?.GetString())
                     formatter.WriteLine($"Display:    {displayName} (from bundle)");
 
-                var runtimePack = info?.GetPropertyOrNull("preferredRuntimePack")?.GetString();
+                var runtimePack = info.GetPropertyOrNull("preferredRuntimePack")?.GetString();
                 if (runtimePack is not null)
                     formatter.WriteLine($"Runtime Pack: {runtimePack}");
 
@@ -335,7 +335,7 @@ internal static class SessionsCommand
                     return 1;
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Net.Sockets.SocketException or OperationCanceledException or System.Text.Json.JsonException)
             {
                 OutputFormatter.WriteError($"Error: Could not capture from PID {pid}: {ex.Message}");
                 return 1;

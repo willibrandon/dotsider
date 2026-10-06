@@ -31,8 +31,8 @@ public class IlDisassemblerBenchmarks
     public void Setup()
     {
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        _coreLibAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.CoreLib.dll"));
-        _xmlAnalyzer = new AssemblyAnalyzer(Path.Combine(runtimeDir, "System.Private.Xml.dll"));
+        _coreLibAnalyzer = new AssemblyAnalyzer(Path.Join(runtimeDir, "System.Private.CoreLib.dll"));
+        _xmlAnalyzer = new AssemblyAnalyzer(Path.Join(runtimeDir, "System.Private.Xml.dll"));
         _coreLibDisasm = new IlDisassembler(_coreLibAnalyzer);
         _xmlDisasm = new IlDisassembler(_xmlAnalyzer);
 
@@ -48,7 +48,10 @@ public class IlDisassemblerBenchmarks
                     break;
                 }
             }
-            catch (BadImageFormatException) { }
+            catch (BadImageFormatException handledException)
+            {
+                System.Diagnostics.Trace.TraceInformation("Setup: {0}", handledException);
+            }
         }
 
         _representativeMethod ??= _coreLibAnalyzer.MethodDefs[0];
@@ -78,7 +81,10 @@ public class IlDisassemblerBenchmarks
                 var instructions = _coreLibDisasm.Disassemble(method);
                 count += instructions.Count;
             }
-            catch (BadImageFormatException) { }
+            catch (BadImageFormatException handledException)
+            {
+                System.Diagnostics.Trace.TraceInformation("CoreLib_DisassembleAll: {0}", handledException);
+            }
         }
         return count;
     }
@@ -97,7 +103,10 @@ public class IlDisassemblerBenchmarks
                 var instructions = _xmlDisasm.Disassemble(method);
                 count += instructions.Count;
             }
-            catch (BadImageFormatException) { }
+            catch (BadImageFormatException handledException)
+            {
+                System.Diagnostics.Trace.TraceInformation("Xml_DisassembleAll: {0}", handledException);
+            }
         }
         return count;
     }
@@ -115,7 +124,10 @@ public class IlDisassemblerBenchmarks
             {
                 totalLen += _coreLibDisasm.FormatDisassembly(method).Length;
             }
-            catch (BadImageFormatException) { }
+            catch (BadImageFormatException handledException)
+            {
+                System.Diagnostics.Trace.TraceInformation("CoreLib_FormatAll: {0}", handledException);
+            }
         }
         return totalLen;
     }
@@ -133,7 +145,10 @@ public class IlDisassemblerBenchmarks
             {
                 totalLen += _xmlDisasm.FormatDisassembly(method).Length;
             }
-            catch (BadImageFormatException) { }
+            catch (BadImageFormatException handledException)
+            {
+                System.Diagnostics.Trace.TraceInformation("Xml_FormatAll: {0}", handledException);
+            }
         }
         return totalLen;
     }

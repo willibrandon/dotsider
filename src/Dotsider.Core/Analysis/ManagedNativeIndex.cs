@@ -164,9 +164,8 @@ public sealed class ManagedNativeIndex
             sourceLookups.Add(lookup);
         }
 
-        foreach (var symbol in nativeSymbols)
+        foreach (var symbol in nativeSymbols.Where(symbol => symbol.Kind == NativeSymbolKind.Function))
         {
-            if (symbol.Kind != NativeSymbolKind.Function) continue;
 
             foreach (var lookup in sourceLookups)
             {
@@ -188,12 +187,12 @@ public sealed class ManagedNativeIndex
         {
             var lookupByAssembly = sourceLookups.ToDictionary(
                 l => l.AssemblyName, l => l, StringComparer.Ordinal);
-            foreach (var row in mstat.Methods)
+            foreach (var (row, lookup) in mstat.Methods
+                         .Select(row => (Row: row, Lookup: lookupByAssembly.GetValueOrDefault(row.AssemblyName)))
+                         .Where(entry => entry.Lookup is not null))
             {
-                if (!lookupByAssembly.TryGetValue(row.AssemblyName, out var lookup)) continue;
-
                 var key = $"{StripTrailingInstantiation(row.DeclaringType)}::{StripTrailingInstantiation(row.Name)}";
-                if (lookup.GroupsByTypeAndName.TryGetValue(key, out var group))
+                if (lookup!.GroupsByTypeAndName.TryGetValue(key, out var group))
                     group.MstatRows.Add(row);
             }
         }
@@ -241,10 +240,8 @@ public sealed class ManagedNativeIndex
             {
                 var first = methods[^group.Methods.Count];
                 var seenVa = new HashSet<ulong>();
-                foreach (var symbol in group.Symbols)
+                foreach (var symbol in group.Symbols.Where(symbol => seenVa.Add(symbol.VirtualAddress)))
                 {
-                    // Aliases at the same VA describe one range; keep the first.
-                    if (!seenVa.Add(symbol.VirtualAddress)) continue;
                     var start = symbol.VirtualAddress;
                     var end = start + (ulong)Math.Max(symbol.Size, 1);
                     addressRanges.Add((start, end, first));
@@ -286,9 +283,8 @@ public sealed class ManagedNativeIndex
 
         var seen = new HashSet<ulong>(symbols.Count);
         long sum = 0;
-        foreach (var symbol in symbols)
-            if (seen.Add(symbol.VirtualAddress))
-                sum += symbol.Size;
+        foreach (var symbol in symbols.Where(symbol => seen.Add(symbol.VirtualAddress)))
+            sum += symbol.Size;
         return sum;
     }
 

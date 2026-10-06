@@ -147,7 +147,7 @@ public sealed class NuGetState(Hex1bApp app, string nupkgPath) : IDisposable
         {
             return FailOpen("Cannot open DLL: extraction failed", ex);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException)
         {
             return FailOpen("Cannot open DLL", ex);
         }

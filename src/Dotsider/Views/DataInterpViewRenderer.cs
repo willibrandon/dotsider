@@ -65,20 +65,15 @@ public sealed class DataInterpViewRenderer : IEditorViewRenderer
         var yankBgAnsi = bgAnsi;
         if (decorationProviders is not null)
         {
-            foreach (var provider in decorationProviders)
+            foreach (var span in decorationProviders
+                         .SelectMany(provider => provider.GetDecorations(1, doc.LineCount, doc))
+                         .Where(span => span.Decoration.Background is { IsDefault: false }))
             {
-                var spans = provider.GetDecorations(1, doc.LineCount, doc);
-                foreach (var span in spans)
-                {
-                    if (span.Decoration.Background is { IsDefault: false } yankBg)
-                    {
-                        yankStart = doc.PositionToOffset(span.Start).Value;
-                        yankEnd = doc.PositionToOffset(span.End).Value;
-                        yankBgAnsi = yankBg.ToBackgroundAnsi();
-                        if (span.Decoration.Foreground is { IsDefault: false } yankFgColor)
-                            yankFgAnsi = yankFgColor.ToForegroundAnsi();
-                    }
-                }
+                yankStart = doc.PositionToOffset(span.Start).Value;
+                yankEnd = doc.PositionToOffset(span.End).Value;
+                yankBgAnsi = span.Decoration.Background.GetValueOrDefault().ToBackgroundAnsi();
+                if (span.Decoration.Foreground is { IsDefault: false } yankFgColor)
+                    yankFgAnsi = yankFgColor.ToForegroundAnsi();
             }
         }
 
@@ -91,12 +86,13 @@ public sealed class DataInterpViewRenderer : IEditorViewRenderer
             offset += (doc.GetLineText(line + 1)?.Length ?? 0) + 1; // +1 for newline
         }
 
+        var sb = new StringBuilder(viewport.Width * 3);
         for (var row = 0; row < Rows && row < viewport.Height; row++)
         {
             var screenY = viewport.Y + row;
             var lineText = doc.GetLineText(row + 1) ?? "";
             var fields = lineText.Split('\t');
-            var sb = new StringBuilder(viewport.Width * 3);
+            sb.Clear();
 
             // Track document column offset within the line
             var docCol = 0;

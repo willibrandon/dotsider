@@ -110,14 +110,14 @@ public class NuGetPackageAnalyzerTests
     public void OpenDll_RealForwarderFacade_MatchesStandaloneAssembly()
     {
         var runtimeDirectory = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
-        var facadePath = Path.Combine(runtimeDirectory, "System.Collections.dll");
+        var facadePath = Path.Join(runtimeDirectory, "System.Collections.dll");
         Assert.IsTrue(File.Exists(facadePath), $"Runtime facade not found: {facadePath}");
         AssertRealForwarder(facadePath, "System.Collections.Generic", "List`1");
 
-        var directory = Path.Combine(
+        var directory = Path.Join(
             Path.GetTempPath(),
             "dotsider-forwarder-package-" + Guid.NewGuid().ToString("N"));
-        var packagePath = Path.Combine(directory, "RuntimeFacade.1.0.0.nupkg");
+        var packagePath = Path.Join(directory, "RuntimeFacade.1.0.0.nupkg");
         Directory.CreateDirectory(directory);
         try
         {
@@ -180,7 +180,7 @@ public class NuGetPackageAnalyzerTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Dispose_IsIdempotent()
     {
-        var pkg = new NuGetPackageAnalyzer(Samples.RichLibraryNupkg);
+        using var pkg = new NuGetPackageAnalyzer(Samples.RichLibraryNupkg);
         pkg.Dispose();
         pkg.Dispose(); // should not throw
     }

@@ -27,8 +27,8 @@ public class DgmlReaderBenchmarks
         BenchmarkHelpers.PublishNativeAotSample("samples/NativeAotConsole");
         var exe = BenchmarkHelpers.GetPublishPath("samples/NativeAotConsole", "NativeAotConsole");
         var dir = Path.GetDirectoryName(exe)!;
-        _codegenPath = Path.Combine(dir, "NativeAotConsole.codegen.dgml.xml");
-        _scanPath = Path.Combine(dir, "NativeAotConsole.scan.dgml.xml");
+        _codegenPath = Path.Join(dir, "NativeAotConsole.codegen.dgml.xml");
+        _scanPath = Path.Join(dir, "NativeAotConsole.scan.dgml.xml");
         if (!File.Exists(_codegenPath) || !File.Exists(_scanPath))
             throw new InvalidOperationException($"DGML sidecars not found next to {exe}");
 
@@ -36,7 +36,7 @@ public class DgmlReaderBenchmarks
             ?? throw new InvalidOperationException("codegen DGML failed to parse");
 
         // The last compiled method is as far from the roots as the report gets.
-        var mstat = MstatReader.Read(Path.Combine(dir, "NativeAotConsole.mstat"))
+        var mstat = MstatReader.Read(Path.Join(dir, "NativeAotConsole.mstat"))
             ?? throw new InvalidOperationException("mstat failed to parse");
         _deepLabel = mstat.Methods.Last(m => m.NodeName is not null && _graph.FindNodeByLabel(m.NodeName) is not null).NodeName!;
     }

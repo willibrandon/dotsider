@@ -1,3 +1,4 @@
+using Dotsider.Core.Analysis;
 using Dotsider.Diagnostics;
 using Dotsider.Infrastructure;
 using Hex1b;
@@ -40,7 +41,8 @@ public class SessionDiagnosticsSocketTests
             WorkloadAdapter = workload
         };
         terminalOptions.PresentationFilters.Add(filter);
-        var terminal = new Hex1bTerminal(terminalOptions);
+        using var terminalOwner = new OwnedResource<Hex1bTerminal>(new Hex1bTerminal(terminalOptions));
+        var terminal = terminalOwner.Value;
 
         DotsiderState? state = null;
         Hex1bApp? app = null;
@@ -86,17 +88,17 @@ public class SessionDiagnosticsSocketTests
             TimeSpan.FromSeconds(10),
             interval: TimeSpan.FromMilliseconds(50));
 
-        return (terminal, app, filter, listener, state!, runTask, cts);
+        return (terminalOwner.Release(), app, filter, listener, state!, runTask, cts);
     }
 
     private static McpDiagnosticsPresentationFilter CreateDiagnosticsFilter(int socketId)
     {
         var filter = new McpDiagnosticsPresentationFilter($"dotsider-test-{socketId}");
-        var socketDirectory = Path.Combine(
+        var socketDirectory = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".hex1b",
             "sockets");
-        var socketPath = Path.Combine(socketDirectory, $"{socketId}.diagnostics.socket");
+        var socketPath = Path.Join(socketDirectory, $"{socketId}.diagnostics.socket");
 
         typeof(McpDiagnosticsPresentationFilter)
             .GetField("_socketPath", BindingFlags.Instance | BindingFlags.NonPublic)!
@@ -133,7 +135,11 @@ public class SessionDiagnosticsSocketTests
         DotsiderState state, Task runTask, CancellationTokenSource cts)
     {
         cts.Cancel();
-        try { await runTask; } catch (OperationCanceledException) { }
+        try { await runTask; }
+        catch (OperationCanceledException handledException)
+        {
+            System.Diagnostics.Trace.TraceInformation("StopAndDisposeAsync: {0}", handledException);
+        }
 
         await listener.DisposeAsync();
         state.Dispose();

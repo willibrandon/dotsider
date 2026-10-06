@@ -714,10 +714,10 @@ public sealed class AssemblyAnalyzer : IDisposable
         PreIlcCompanionSet set;
         try
         {
-            var root = new AssemblyAnalyzer(sidecars.ManagedAssemblyPath!);
+            using var companions = new OwnedResources<AssemblyAnalyzer>();
+            var root = companions.Add(new AssemblyAnalyzer(sidecars.ManagedAssemblyPath!));
             if (!root.HasMetadata)
             {
-                root.Dispose();
                 return null;
             }
 
@@ -726,9 +726,9 @@ public sealed class AssemblyAnalyzer : IDisposable
             {
                 try
                 {
-                    var reference = new AssemblyAnalyzer(path);
-                    if (reference.HasMetadata) locals.Add(reference);
-                    else reference.Dispose();
+                    using var referenceOwner = new OwnedResource<AssemblyAnalyzer>(new AssemblyAnalyzer(path));
+                    if (referenceOwner.Value.HasMetadata)
+                        locals.Add(companions.Add(referenceOwner.Release()));
                 }
                 catch (Exception ex) when (ex is IOException or BadImageFormatException or UnauthorizedAccessException)
                 {
@@ -737,6 +737,7 @@ public sealed class AssemblyAnalyzer : IDisposable
             }
 
             set = new PreIlcCompanionSet(root, locals);
+            companions.ReleaseAll();
         }
         catch (Exception ex) when (ex is IOException or BadImageFormatException or UnauthorizedAccessException)
         {
@@ -842,7 +843,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (string.IsNullOrEmpty(directory)) return null;
 
         var stem = PreIlcSidecarDetector.StripKnownExtension(Path.GetFileName(FilePath));
-        var candidate = Path.Combine(directory, stem + suffix);
+        var candidate = Path.Join(directory, stem + suffix);
         return File.Exists(candidate) ? candidate : null;
     }
 
@@ -1346,7 +1347,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         {
             return $"\"{_metadataReader!.GetUserString(handle)}\"";
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return $"0x{MetadataTokens.GetToken(handle):X8}";
         }
@@ -1531,9 +1532,8 @@ public sealed class AssemblyAnalyzer : IDisposable
             return;
         }
 
-        foreach (var attrHandle in _metadataReader.GetAssemblyDefinition().GetCustomAttributes())
+        foreach (var attr in _metadataReader.GetAssemblyDefinition().GetCustomAttributes().Select(attrHandle => _metadataReader.GetCustomAttribute(attrHandle)))
         {
-            var attr = _metadataReader.GetCustomAttribute(attrHandle);
             var ctorName = GetAttributeConstructorName(attr);
             if (ctorName?.Contains("TargetFrameworkAttribute") == true)
             {
@@ -1914,12 +1914,11 @@ public sealed class AssemblyAnalyzer : IDisposable
         // The CodeView entry's own file name (its directory is discarded), then <stem>.pdb.
         var candidates = new List<string>(2);
         if (!string.IsNullOrEmpty(codeViewData.Path))
-            candidates.Add(Path.Combine(directory, Path.GetFileName(codeViewData.Path)));
-        candidates.Add(Path.Combine(directory, Path.GetFileNameWithoutExtension(FilePath) + ".pdb"));
+            candidates.Add(Path.Join(directory, Path.GetFileName(codeViewData.Path)));
+        candidates.Add(Path.Join(directory, Path.GetFileNameWithoutExtension(FilePath) + ".pdb"));
 
-        foreach (var path in candidates)
+        foreach (var path in candidates.Where(path => File.Exists(path)))
         {
-            if (!File.Exists(path)) continue;
             if (NativePdb.NativePdbReader.TryReadPdbId(path, out var guid, out var age)
                 && guid == codeViewData.Guid && age == codeViewData.Age)
             {
@@ -2003,35 +2002,27 @@ public sealed class AssemblyAnalyzer : IDisposable
     private bool TryOpenPortablePdbFile(string path, Guid expectedGuid, int expectedAge, out bool mismatched)
     {
         mismatched = false;
-        FileStream? stream = null;
-        MetadataReaderProvider? provider = null;
         try
         {
-            stream = File.OpenRead(path);
-            provider = MetadataReaderProvider.FromPortablePdbStream(stream);
-            var reader = provider.GetMetadataReader();
+            using var streamOwner = new OwnedResource<FileStream>(File.OpenRead(path));
+            using var providerOwner = new OwnedResource<MetadataReaderProvider>(
+                MetadataReaderProvider.FromPortablePdbStream(streamOwner.Value));
+            streamOwner.Release(); // The provider now owns its stream.
+            var reader = providerOwner.Value.GetMetadataReader();
             if (!PortablePdbUtilities.PortablePdbIdMatches(reader, expectedGuid, expectedAge))
             {
                 mismatched = true;
-                provider.Dispose();
                 return false;
             }
 
-            _pdbReaderProvider = provider;
-            _pdbReader = reader;
             PdbProvenance = new PdbProvenance(PdbProvenanceKind.Sidecar, path);
+            _pdbReader = reader;
+            _pdbReaderProvider = providerOwner.Release();
             return true;
         }
-        catch (BadImageFormatException)
+        catch (Exception ex) when (ex is BadImageFormatException or IOException)
         {
-            provider?.Dispose();
-            stream?.Dispose();
-            return false;
-        }
-        catch (IOException)
-        {
-            provider?.Dispose();
-            stream?.Dispose();
+            System.Diagnostics.Trace.TraceInformation("Cannot open portable PDB {0}: {1}", path, ex);
             return false;
         }
     }
@@ -2043,7 +2034,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         var codeViewFileName = Path.GetFileName(codeViewPath);
 
         if (!string.IsNullOrEmpty(assemblyDirectory) && !string.IsNullOrEmpty(codeViewFileName))
-            paths.Add(Path.Combine(assemblyDirectory, codeViewFileName));
+            paths.Add(Path.Join(assemblyDirectory, codeViewFileName));
 
         var defaultPath = Path.ChangeExtension(FilePath, ".pdb");
         if (!paths.Contains(defaultPath, StringComparer.OrdinalIgnoreCase))
@@ -2095,12 +2086,10 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (_pdbReader is null) return [];
 
         var locals = new List<LocalSlotInfo>();
-        foreach (var scopeHandle in _pdbReader.GetLocalScopes(methodHandle))
+        foreach (var scope in _pdbReader.GetLocalScopes(methodHandle).Select(scopeHandle => _pdbReader.GetLocalScope(scopeHandle)))
         {
-            var scope = _pdbReader.GetLocalScope(scopeHandle);
-            foreach (var variableHandle in scope.GetLocalVariables())
+            foreach (var variable in scope.GetLocalVariables().Select(variableHandle => _pdbReader.GetLocalVariable(variableHandle)))
             {
-                var variable = _pdbReader.GetLocalVariable(variableHandle);
                 var name = _pdbReader.GetString(variable.Name);
                 if (string.IsNullOrEmpty(name)) continue;
 
@@ -2246,9 +2235,8 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (_metadataReader is null) return [];
 
         var result = new List<AssemblyRefInfo>();
-        foreach (var handle in _metadataReader.AssemblyReferences)
+        foreach (var ar in _metadataReader.AssemblyReferences.Select(handle => _metadataReader.GetAssemblyReference(handle)))
         {
-            var ar = _metadataReader.GetAssemblyReference(handle);
             var name = _metadataReader.GetString(ar.Name);
             var version = ar.Version.ToString();
             var culture = _metadataReader.GetString(ar.Culture);
@@ -2471,9 +2459,8 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (_metadataReader is null) return [];
 
         var result = new List<CustomAttributeInfo>();
-        foreach (var handle in _metadataReader.CustomAttributes)
+        foreach (var attr in _metadataReader.CustomAttributes.Select(handle => _metadataReader.GetCustomAttribute(handle)))
         {
-            var attr = _metadataReader.GetCustomAttribute(handle);
             var parent = DescribeHandle(attr.Parent);
             var ctor = GetAttributeConstructorName(attr) ?? "Unknown";
             var value = DecodeAttributeString(attr);
@@ -2489,9 +2476,8 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (_metadataReader is null) return [];
 
         var result = new List<ResourceInfo>();
-        foreach (var handle in _metadataReader.ManifestResources)
+        foreach (var res in _metadataReader.ManifestResources.Select(handle => _metadataReader.GetManifestResource(handle)))
         {
-            var res = _metadataReader.GetManifestResource(handle);
             var name = _metadataReader.GetString(res.Name);
             var visibility = res.Attributes.HasFlag(ManifestResourceAttributes.Public) ? "Public" : "Private";
             var isLinked = !res.Implementation.IsNil;
@@ -2522,7 +2508,7 @@ public sealed class AssemblyAnalyzer : IDisposable
                         }
                     }
                 }
-                catch
+                catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
                 {
                     // Size detection failed, leave as -1
                 }
@@ -2563,7 +2549,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private string GetMethodDefName(MethodDefinitionHandle handle)
     {
-        if (_metadataReader is null) return handle.ToString()!;
+        if (_metadataReader is null) return $"0x{MetadataTokens.GetToken(handle):X8}";
         var md = _metadataReader.GetMethodDefinition(handle);
         var typeName = GetTypeDefName(md.GetDeclaringType());
         var name = _metadataReader.GetString(md.Name);
@@ -2586,7 +2572,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private string GetMemberRefName(MemberReferenceHandle handle)
     {
-        if (_metadataReader is null) return handle.ToString()!;
+        if (_metadataReader is null) return $"0x{MetadataTokens.GetToken(handle):X8}";
         var mr = _metadataReader.GetMemberReference(handle);
         var name = _metadataReader.GetString(mr.Name);
         var parent = mr.Parent.Kind switch
@@ -2673,7 +2659,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private string GetFieldDefName(FieldDefinitionHandle handle)
     {
-        if (_metadataReader is null) return handle.ToString()!;
+        if (_metadataReader is null) return $"0x{MetadataTokens.GetToken(handle):X8}";
         var fd = _metadataReader.GetFieldDefinition(handle);
         var typeName = GetTypeDefName(fd.GetDeclaringType());
         var name = _metadataReader.GetString(fd.Name);
@@ -2682,7 +2668,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private string GetUserString(UserStringHandle handle)
     {
-        if (_metadataReader is null) return handle.ToString()!;
+        if (_metadataReader is null) return $"0x{MetadataTokens.GetToken(handle):X8}";
         var s = _metadataReader.GetUserString(handle);
         return s.Length > 50 ? $"\"{s[..50]}...\"" : $"\"{s}\"";
     }
@@ -2713,7 +2699,7 @@ public sealed class AssemblyAnalyzer : IDisposable
                 _ => null
             };
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return null;
         }
@@ -2737,7 +2723,7 @@ public sealed class AssemblyAnalyzer : IDisposable
             if (offset + length > value.Length) return null;
             return System.Text.Encoding.UTF8.GetString(value, offset, length);
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return null;
         }
@@ -2782,10 +2768,10 @@ public sealed class AssemblyAnalyzer : IDisposable
             : Path.GetDirectoryName(referencingAssemblyPath)!;
 
         // 1. App-local directory
-        var local = Path.Combine(directory, $"{assemblyName}.dll");
+        var local = Path.Join(directory, $"{assemblyName}.dll");
         if (File.Exists(local)) return new ResolvedAssembly.FromFile(local);
 
-        local = Path.Combine(directory, $"{assemblyName}.exe");
+        local = Path.Join(directory, $"{assemblyName}.exe");
         if (File.Exists(local)) return new ResolvedAssembly.FromFile(local);
 
         // 2. NuGet global packages folder via .deps.json — library projects do not copy
@@ -2795,7 +2781,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 
         // 3. .NET runtime directory (BCL assemblies)
         var runtimeDir = RuntimeEnvironment.GetRuntimeDirectory();
-        var runtimeDll = Path.Combine(runtimeDir, $"{assemblyName}.dll");
+        var runtimeDll = Path.Join(runtimeDir, $"{assemblyName}.dll");
         if (File.Exists(runtimeDll)) return new ResolvedAssembly.FromFile(runtimeDll);
 
         // 4. Source bundle — if the referencing assembly came from a bundle
@@ -2904,10 +2890,10 @@ public sealed class AssemblyAnalyzer : IDisposable
             return null;
         }
 
-        var hit = TryFile(Path.Combine(directory, $"{identity.Name}.dll"), AssemblyProvenance.AppLocal)
-                  ?? TryFile(Path.Combine(directory, $"{identity.Name}.exe"), AssemblyProvenance.AppLocal)
+        var hit = TryFile(Path.Join(directory, $"{identity.Name}.dll"), AssemblyProvenance.AppLocal)
+                  ?? TryFile(Path.Join(directory, $"{identity.Name}.exe"), AssemblyProvenance.AppLocal)
                   ?? TryNuGet()
-                  ?? TryFile(Path.Combine(RuntimeEnvironment.GetRuntimeDirectory(), $"{identity.Name}.dll"),
+                  ?? TryFile(Path.Join(RuntimeEnvironment.GetRuntimeDirectory(), $"{identity.Name}.dll"),
                              AssemblyProvenance.RuntimeDirectory)
                   ?? TryBundle(TryResolveFromBundle(sourceBundlePath, identity.Name),
                                AssemblyProvenance.SourceBundle)
@@ -3044,7 +3030,7 @@ public sealed class AssemblyAnalyzer : IDisposable
                     analyzer.Culture ?? "neutral",
                     analyzer.PublicKeyToken);
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return null;
         }
@@ -3062,7 +3048,7 @@ public sealed class AssemblyAnalyzer : IDisposable
                     analyzer.Culture ?? "neutral",
                     analyzer.PublicKeyToken);
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             return null;
         }
@@ -3140,7 +3126,7 @@ public sealed class AssemblyAnalyzer : IDisposable
             if (bytes is not null)
                 return new ResolvedAssembly.FromBundle(bytes, $"{assemblyName}.dll", bundlePath);
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             // Bundle not readable
         }
@@ -3153,11 +3139,8 @@ public sealed class AssemblyAnalyzer : IDisposable
     {
         try
         {
-            foreach (var file in Directory.EnumerateFiles(directory))
+            foreach (var file in Directory.EnumerateFiles(directory).Where(file => !(string.Equals(file, Environment.ProcessPath, StringComparison.OrdinalIgnoreCase))))
             {
-                // Skip files we've already checked (source bundle, host process)
-                if (string.Equals(file, Environment.ProcessPath, StringComparison.OrdinalIgnoreCase))
-                    continue;
 
                 // Only check executable-looking files (no extension or .exe)
                 var ext = Path.GetExtension(file);
@@ -3169,7 +3152,7 @@ public sealed class AssemblyAnalyzer : IDisposable
                     return result;
             }
         }
-        catch
+        catch (Exception caughtException) when (caughtException is BadImageFormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException or OverflowException or System.IO.IOException or UnauthorizedAccessException)
         {
             // Directory not accessible
         }
@@ -3182,10 +3165,10 @@ public sealed class AssemblyAnalyzer : IDisposable
         if (_metadataReader is null)
             return "Microsoft.NETCore.App";
 
-        foreach (var h in _metadataReader.AssemblyReferences)
+        foreach (var name in _metadataReader.AssemblyReferences
+            .Select(_metadataReader.GetAssemblyReference)
+            .Select(reference => _metadataReader.GetString(reference.Name)))
         {
-            var r = _metadataReader.GetAssemblyReference(h);
-            var name = _metadataReader.GetString(r.Name);
 
             if (name is "WindowsBase" or "PresentationFramework" or "PresentationCore")
                 return "Microsoft.WindowsDesktop.App";

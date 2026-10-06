@@ -158,7 +158,7 @@ internal static class MachOImageReader
 
             for (var i = 0; i < sectionCount; i++)
             {
-                var sectionOffset = sectionTable + (int)(i * Section64Size);
+                var sectionOffset = sectionTable + (i * Section64Size);
                 var address = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(sectionOffset + 32)..]);
                 var sizeValue = BinaryPrimitives.ReadUInt64LittleEndian(bytes[(sectionOffset + 40)..]);
                 var fileOffsetValue = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(sectionOffset + 48)..]);

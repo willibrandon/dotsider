@@ -65,7 +65,7 @@ public sealed class AssemblyLoaderTests
     public void Open_MalformedSingleFileBundle_DoesNotCreateBundleEntry()
     {
         Assert.IsNotNull(Samples.SelfContainedConsoleExe);
-        var path = Path.Combine(Path.GetTempPath(), $"dotsider-malformed-bundle-{Guid.NewGuid():N}.exe");
+        var path = Path.Join(Path.GetTempPath(), $"dotsider-malformed-bundle-{Guid.NewGuid():N}.exe");
         try
         {
             File.Copy(Samples.SelfContainedConsoleExe!, path);

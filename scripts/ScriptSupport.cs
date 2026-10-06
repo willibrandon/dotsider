@@ -42,23 +42,20 @@ internal static class ScriptSupport
         var arrayOptionSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var switchOptionSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (string option in valueOptions)
+        foreach (var key in valueOptions.Select(option => NormalizeOptionName(option)))
         {
-            string key = NormalizeOptionName(option);
             valueOptionSet.Add(key);
             knownOptions.Add(key);
         }
 
-        foreach (string option in arrayOptions)
+        foreach (var key in arrayOptions.Select(option => NormalizeOptionName(option)))
         {
-            string key = NormalizeOptionName(option);
             arrayOptionSet.Add(key);
             knownOptions.Add(key);
         }
 
-        foreach (string option in switchOptions)
+        foreach (var key in switchOptions.Select(option => NormalizeOptionName(option)))
         {
-            string key = NormalizeOptionName(option);
             switchOptionSet.Add(key);
             knownOptions.Add(key);
         }
@@ -207,7 +204,7 @@ internal static class ScriptSupport
 
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Dotsider.slnx")))
+            if (File.Exists(Path.Join(directory.FullName, "Dotsider.slnx")))
             {
                 return directory.FullName;
             }
@@ -218,7 +215,7 @@ internal static class ScriptSupport
         directory = new DirectoryInfo(Directory.GetCurrentDirectory());
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Dotsider.slnx")))
+            if (File.Exists(Path.Join(directory.FullName, "Dotsider.slnx")))
             {
                 return directory.FullName;
             }
@@ -245,7 +242,7 @@ internal static class ScriptSupport
 
         string resolvedPathValue = Path.IsPathFullyQualified(pathValue)
             ? pathValue
-            : Path.Combine(baseDirectory, pathValue);
+            : Path.Join(baseDirectory, pathValue);
         if (File.Exists(resolvedPathValue) || Directory.Exists(resolvedPathValue))
         {
             return Path.GetFullPath(resolvedPathValue);
@@ -488,9 +485,8 @@ internal static class ScriptSupport
     internal static JsonArray ToJsonArray(IEnumerable<string> values)
     {
         var array = new JsonArray();
-        foreach (string value in values)
+        foreach (JsonNode? node in values.Select(value => JsonValue.Create(value)))
         {
-            JsonNode? node = JsonValue.Create(value);
             array.Add(node);
         }
 
@@ -633,7 +629,7 @@ internal static class ScriptSupport
         {
             foreach (string extension in extensions)
             {
-                string candidate = Path.Combine(directory, command.EndsWith(extension, StringComparison.OrdinalIgnoreCase) ? command : command + extension);
+                string candidate = Path.Join(directory, command.EndsWith(extension, StringComparison.OrdinalIgnoreCase) ? command : command + extension);
                 if (File.Exists(candidate))
                 {
                     return candidate;

@@ -43,7 +43,7 @@ internal static class CaptureDisasmOracleApp
         string architecture = ScriptSupport.GetString(values, "Architecture");
         string fixture = ScriptSupport.GetString(values, "Fixture");
         string oraclePath = ScriptSupport.GetString(values, "OraclePath");
-        string outputDirectory = ScriptSupport.GetString(values, "OutputDirectory", Path.Combine(repositoryRoot, "artifacts", "oracles", "disasm"));
+        string outputDirectory = ScriptSupport.GetString(values, "OutputDirectory", Path.Join(repositoryRoot, "artifacts", "oracles", "disasm"));
         string runtimeRootValue = ScriptSupport.GetString(
             values,
             "RuntimeRoot",
@@ -83,9 +83,9 @@ internal static class CaptureDisasmOracleApp
         string safeStem = MakeSafeFileStem(Path.GetFileNameWithoutExtension(resolvedFixture));
         string safeArchitecture = MakeSafeFileStem(architecture);
         string outputStem = $"{safeStem}.{safeArchitecture}.oracle";
-        string stdoutPath = Path.Combine(resolvedOutputDirectory, $"{outputStem}.txt");
-        string stderrPath = Path.Combine(resolvedOutputDirectory, $"{outputStem}.stderr.txt");
-        string metadataPath = Path.Combine(resolvedOutputDirectory, $"{outputStem}.json");
+        string stdoutPath = Path.Join(resolvedOutputDirectory, $"{outputStem}.txt");
+        string stderrPath = Path.Join(resolvedOutputDirectory, $"{outputStem}.stderr.txt");
+        string metadataPath = Path.Join(resolvedOutputDirectory, $"{outputStem}.json");
 
         (int exitCode, string stdout, string stderr, bool stdoutTruncated, bool stderrTruncated, bool timedOut) = ScriptSupport.RunProcess(
             resolvedOraclePath,

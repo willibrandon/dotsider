@@ -11,7 +11,8 @@ internal static class JsonElementExtensions
     /// Returns the property value if it exists, or null.
     /// </summary>
     public static JsonElement? GetPropertyOrNull(this JsonElement element, string propertyName)
-        => element.TryGetProperty(propertyName, out var value) ? value : null;
+        => element.ValueKind == JsonValueKind.Object && element.TryGetProperty(propertyName, out var value)
+            ? value : null;
 
     /// <summary>
     /// Returns a display string for a JsonElement regardless of its value kind

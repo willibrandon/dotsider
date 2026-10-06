@@ -41,11 +41,7 @@ public sealed class UserService : IRepository<User>
             string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Tries to find a user by ID, returning null on error.</summary>
-    public User? TryFindById(int id)
-    {
-        try { return GetById(id); }
-        catch (Exception) { return null; }
-    }
+    public User? TryFindById(int id) => GetById(id);
 
     /// <summary>Returns a summary of the user store.</summary>
     public string SummarizeUsers()

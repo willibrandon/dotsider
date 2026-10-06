@@ -1,4 +1,3 @@
-using Dotsider.Core.Analysis.Models;
 using Dotsider.Infrastructure;
 using Hex1b;
 using Hex1b.Documents;
@@ -27,7 +26,7 @@ public static class NuGetBrowserView
         var displayQuery = TerminalText.Escape(query ?? string.Empty);
 
         // Filter DLL list by search query
-        var dlls = (IReadOnlyList<NuGetFileEntry>)pkg.DllFiles;
+        var dlls = pkg.DllFiles;
         if (!string.IsNullOrEmpty(query))
         {
             dlls = [.. dlls.Where(d =>

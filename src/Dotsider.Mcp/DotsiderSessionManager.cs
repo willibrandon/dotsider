@@ -6,7 +6,7 @@ namespace Dotsider.Mcp;
 /// </summary>
 public sealed class DotsiderSessionManager(string socketDir)
 {
-    private static readonly string s_defaultSocketDir = Path.Combine(
+    private static readonly string s_defaultSocketDir = Path.Join(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".dotsider", "sockets");
 
@@ -40,7 +40,7 @@ public sealed class DotsiderSessionManager(string socketDir)
     /// </summary>
     public RemoteDotsiderTarget GetTarget(int pid)
     {
-        var socketPath = Path.Combine(socketDir, $"{pid}.dotsider.socket");
+        var socketPath = Path.Join(socketDir, $"{pid}.dotsider.socket");
         return new RemoteDotsiderTarget(socketPath);
     }
 
@@ -48,7 +48,7 @@ public sealed class DotsiderSessionManager(string socketDir)
     /// Gets the hex1b diagnostics socket path for capture/input operations.
     /// </summary>
     public static string GetHex1bSocketPath(int pid) =>
-        Path.Combine(
+        Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".hex1b", "sockets", $"{pid}.diagnostics.socket");
 }

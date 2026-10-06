@@ -244,8 +244,8 @@ public class DependencyGraphBuilderTests
             "RootDupPkt",
             refs:
             [
-                ("TargetPktLib", new Version(1, 0, 0, 0), (byte[]?)[1, 2, 3, 4, 5, 6, 7, 8]),
-                ("TargetPktLib", new Version(1, 0, 0, 0), (byte[]?)[9, 9, 9, 9, 9, 9, 9, 9]),
+                ("TargetPktLib", new Version(1, 0, 0, 0), new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }),
+                ("TargetPktLib", new Version(1, 0, 0, 0), "\t\t\t\t\t\t\t\t"u8.ToArray()),
             ]);
 
         using var a = new AssemblyAnalyzer(rootPath);
@@ -341,7 +341,7 @@ public class DependencyGraphBuilderTests
         using var scope = SyntheticAssemblyScope.Create();
         scope.WriteAssembly("CycA", refs: [("CycB", new Version(1, 0, 0, 0))]);
         scope.WriteAssembly("CycB", refs: [("CycA", new Version(1, 0, 0, 0))]);
-        var rootPath = Path.Combine(scope.Directory, "CycA.dll");
+        var rootPath = Path.Join(scope.Directory, "CycA.dll");
 
         using var a = new AssemblyAnalyzer(rootPath);
         var graph = DependencyGraphBuilder.Build(a);
@@ -373,7 +373,7 @@ public class DependencyGraphBuilderTests
         scope.WriteAssembly("DiaRightBranch", refs: [("DiaCommon", new Version(1, 0, 0, 0))]);
         scope.WriteAssembly("DiaCommon");
 
-        var rootPath = Path.Combine(scope.Directory, "DiaRoot.dll");
+        var rootPath = Path.Join(scope.Directory, "DiaRoot.dll");
         using var a = new AssemblyAnalyzer(rootPath);
         var graph = DependencyGraphBuilder.Build(a);
 
@@ -538,8 +538,9 @@ public class DependencyGraphBuilderTests
 
         TestAssert.All(graph.Nodes, n =>
         {
-            Assert.IsTrue(graph.NavigationById.ContainsKey(n.Id), $"{n.Name}: navigation context missing");
-            Assert.IsNull(graph.NavigationById[n.Id].Resolved);
+            Assert.IsTrue(graph.NavigationById.TryGetValue(n.Id, out var navigation), $"{n.Name}: navigation context missing");
+            Assert.IsNotNull(navigation);
+            Assert.IsNull(navigation.Resolved);
         });
         TestAssert.All(graph.Nodes.Where(n => !n.IsRoot), n =>
             Assert.AreEqual(AssemblyProvenance.CompiledIntoNativeImage, graph.NavigationById[n.Id].Provenance));
@@ -559,7 +560,7 @@ public class DependencyGraphBuilderTests
         var dir = Directory.CreateTempSubdirectory("dotsider-depgraph-");
         try
         {
-            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            var exeCopy = Path.Join(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
             File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
             using var a = new AssemblyAnalyzer(exeCopy);
 

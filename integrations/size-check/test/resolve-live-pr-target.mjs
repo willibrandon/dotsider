@@ -17,11 +17,10 @@ const resolution = await resolveGithubTargetCommit(process.env);
 if (resolution.status !== "resolved") {
   throw new Error(`Expected an open pull-request test merge; resolution was ${JSON.stringify(resolution)}.`);
 }
-const event = JSON.parse(await (await import("node:fs/promises")).readFile(process.env.GITHUB_EVENT_PATH, "utf8"));
 const local = await resolveLocalMergeTargetCommit(
   process.env.GITHUB_WORKSPACE,
   process.env.GITHUB_SHA,
-  event.pull_request?.head?.sha,
+  process.env.DOTSIDER_EVENT_PR_HEAD_SHA,
 );
 if (local.status !== "resolved" || local.targetCommit !== resolution.targetCommit) {
   throw new Error(`Local PR merge resolution disagreed: ${JSON.stringify(local)}.`);

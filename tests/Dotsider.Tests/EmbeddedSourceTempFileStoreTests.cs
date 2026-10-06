@@ -295,7 +295,7 @@ public sealed partial class EmbeddedSourceTempFileStoreTests
     {
         using var store = new EmbeddedSourceTempFileStore();
         _ = store.Write("Method", "Source.cs", [0x2A]);
-        var externalPath = Path.Combine(Path.GetTempPath(), "outside.cs");
+        var externalPath = Path.Join(Path.GetTempPath(), "outside.cs");
 
         Assert.ThrowsExactly<IOException>(() => store.PrepareAssociationPath(externalPath));
     }
@@ -329,7 +329,7 @@ public sealed partial class EmbeddedSourceTempFileStoreTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Dispose_AfterWrite_RemovesSessionDirectoryAndIsIdempotent()
     {
-        var store = new EmbeddedSourceTempFileStore();
+        using var store = new EmbeddedSourceTempFileStore();
         _ = store.Write("Method", "Source.cs", [0x2A]);
         var directory = store.SessionDirectory;
         Assert.IsNotNull(directory);
@@ -353,7 +353,7 @@ public sealed partial class EmbeddedSourceTempFileStoreTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Write_PredictableLegacyTempDirectoryExists_UsesUniquePrivateDirectory()
     {
-        var predictablePath = Path.Combine(Path.GetTempPath(), "dotsider");
+        var predictablePath = Path.Join(Path.GetTempPath(), "dotsider");
         var created = false;
         if (!Directory.Exists(predictablePath) && !File.Exists(predictablePath))
         {

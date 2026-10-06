@@ -130,7 +130,7 @@ public class MstatReaderTests
 
         Assert.IsTrue(MstatReader.Probe(Samples.NativeAotConsoleMstat!));
         Assert.IsFalse(MstatReader.Probe(Samples.RichLibraryDll));
-        Assert.IsFalse(MstatReader.Probe(Path.Combine(Path.GetTempPath(), "missing.mstat")));
+        Assert.IsFalse(MstatReader.Probe(Path.Join(Path.GetTempPath(), "missing.mstat")));
     }
 
     /// <summary>
@@ -271,7 +271,7 @@ public class MstatReaderTests
     [Timeout(30_000, CooperativeCancellation = true)]
     public void Read_MissingFile_ReturnsNull()
     {
-        Assert.IsNull(MstatReader.Read(Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.mstat")));
+        Assert.IsNull(MstatReader.Read(Path.Join(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.mstat")));
     }
 
     /// <summary>
@@ -397,9 +397,8 @@ public class MstatReaderTests
     {
         byte[]? methodsIl = null;
         var module = reader.GetTypeDefinition(MetadataTokens.TypeDefinitionHandle(1));
-        foreach (var handle in module.GetMethods())
+        foreach (var method in module.GetMethods().Select(handle => reader.GetMethodDefinition(handle)))
         {
-            var method = reader.GetMethodDefinition(handle);
             if (reader.GetString(method.Name) == "Methods")
             {
                 methodsIl = peReader.GetMethodBody(method.RelativeVirtualAddress).GetILBytes();

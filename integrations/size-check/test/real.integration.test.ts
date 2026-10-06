@@ -98,6 +98,41 @@ test("GitHub adapter keeps real reports and writes error outputs when summary pu
   assert.equal((await fs.stat(markdownReportPath)).isFile(), true);
 });
 
+test("GitHub default reports use a separate private directory for each invocation", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-github-private-"));
+  try {
+    const roots = new Set<string>();
+    for (let invocation = 0; invocation < 2; invocation++) {
+      const outputPath = path.join(directory, `outputs-${invocation}`);
+      const child = await runGitHub("run", {
+        GITHUB_OUTPUT: outputPath,
+        RUNNER_TEMP: directory,
+        DOTSIDER_INPUT_TARGET: target,
+        DOTSIDER_INPUT_BASELINE: baseline,
+        DOTSIDER_INPUT_REPORT_DIRECTORY: "",
+        DOTSIDER_INPUT_PUBLISH_SUMMARY: "false",
+        DOTSIDER_PREPARED_VERSION: "custom",
+        DOTSIDER_PREPARED_RID: `unused-${process.arch}`,
+        DOTSIDER_PREPARED_CACHE_DIRECTORY: path.dirname(executable),
+        DOTSIDER_PREPARED_EXECUTABLE_PATH: executable,
+        DOTSIDER_PREPARED_CACHE_KEY: "dotsider-custom",
+        DOTSIDER_PREPARED_EXPLICIT: "true",
+      });
+      assert.equal(child.exitCode, 0, child.stdout + child.stderr);
+      const outputs = parseGitHubOutputs(await fs.readFile(outputPath, "utf8"));
+      const reportPath = requiredOutput(outputs, "json-report-path");
+      assert.equal((await fs.stat(reportPath)).isFile(), true);
+      const privateRoot = path.dirname(path.dirname(reportPath));
+      assert.equal(path.dirname(privateRoot), directory);
+      if (process.platform !== "win32") assert.equal((await fs.stat(privateRoot)).mode & 0o777, 0o700);
+      roots.add(privateRoot);
+    }
+    assert.equal(roots.size, 2);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("real warning budget returns passed-with-warnings", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "dotsider-warning-"));
   const budgetFile = path.join(directory, "budgets.json");

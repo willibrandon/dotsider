@@ -21,7 +21,7 @@ public class SampleAssemblyFixtureTests
         var directory = Directory.CreateTempSubdirectory("dotsider-r2r-");
         try
         {
-            var path = Path.Combine(directory.FullName, "partial.r2r.dll");
+            var path = Path.Join(directory.FullName, "partial.r2r.dll");
             var image = File.ReadAllBytes(Samples.ReadyToRunCompositeImage!);
             File.WriteAllBytes(path, image.AsSpan(0, Math.Min(image.Length, 4096)));
 

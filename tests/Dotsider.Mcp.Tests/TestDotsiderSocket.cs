@@ -1,6 +1,5 @@
 using Dotsider.Core.Protocol;
 using System.Net.Sockets;
-using System.Runtime.ExceptionServices;
 using System.Text.Json;
 
 namespace Dotsider.Mcp.Tests;
@@ -32,7 +31,7 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
     public TestDotsiderSocket(int pid, string assemblyPath)
         : this(
             pid,
-            Path.Combine(
+            Path.Join(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 ".dotsider", "sockets", $"{pid}.dotsider.socket"),
             assemblyPath)
@@ -133,7 +132,7 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
 
     private async Task HandleConnectionAsync(Socket client, CancellationToken cancellationToken)
     {
-        ExceptionDispatchInfo? handlerFailure = null;
+        var invokingHandler = false;
         try
         {
             await using var stream = new NetworkStream(client, ownsSocket: true);
@@ -156,37 +155,27 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
                 }
                 else if (_handlers.TryGetValue(request.Method.ToLowerInvariant(), out var handler))
                 {
-                    try
-                    {
-                        response = handler(request);
-                    }
-                    catch (Exception ex)
-                    {
-                        handlerFailure = ExceptionDispatchInfo.Capture(ex);
-                        response = default!;
-                    }
+                    invokingHandler = true;
+                    response = handler(request);
+                    invokingHandler = false;
                 }
                 else
                 {
                     response = DotsiderResponse.Fail($"Unknown method: {request.Method}");
                 }
             }
-            catch (JsonException ex)
+            catch (JsonException ex) when (!invokingHandler)
             {
                 response = DotsiderResponse.Fail($"Invalid JSON: {ex.Message}");
             }
-
-            if (handlerFailure is null)
-            {
-                var responseJson = JsonSerializer.Serialize(response, DotsiderJsonContext.Protocol.Options);
-                await writer.WriteLineAsync(responseJson.AsMemory(), cancellationToken);
-            }
+            var responseJson = JsonSerializer.Serialize(response, DotsiderJsonContext.Protocol.Options);
+            await writer.WriteLineAsync(responseJson.AsMemory(), cancellationToken);
         }
-        catch (Exception ex) when (IsExpectedShutdownException(ex, cancellationToken))
+        catch (Exception ex) when (!invokingHandler && IsExpectedShutdownException(ex, cancellationToken))
         {
+            System.Diagnostics.Trace.TraceInformation("HandleConnectionAsync: {0}", ex);
         }
 
-        handlerFailure?.Throw();
     }
 
     /// <inheritdoc/>
@@ -212,36 +201,24 @@ internal sealed class TestDotsiderSocket : IAsyncDisposable
         _cts.Cancel();
         _listener.Dispose();
 
-        ExceptionDispatchInfo? failure = null;
         try
         {
             if (_acceptTask is not null)
             {
-                await _acceptTask;
+                // Wait for the connection list to stop changing. Observe its failure together
+                // with connection failures below, after every handler has finished.
+                await Task.WhenAny(_acceptTask);
+            }
+            await Task.WhenAll(_connectionTasks.Prepend(_acceptTask ?? Task.CompletedTask));
+        }
+        finally
+        {
+            using (_cts)
+            {
+                if (File.Exists(SocketPath))
+                    File.Delete(SocketPath);
             }
         }
-        catch (Exception ex)
-        {
-            failure = ExceptionDispatchInfo.Capture(ex);
-        }
-
-        try
-        {
-            await Task.WhenAll(_connectionTasks);
-        }
-        catch (Exception ex)
-        {
-            failure ??= ExceptionDispatchInfo.Capture(ex);
-        }
-
-        _cts.Dispose();
-
-        if (File.Exists(SocketPath))
-        {
-            File.Delete(SocketPath);
-        }
-
-        failure?.Throw();
     }
 
     private bool IsExpectedShutdownException(Exception exception, CancellationToken cancellationToken)

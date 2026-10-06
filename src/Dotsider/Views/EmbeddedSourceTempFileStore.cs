@@ -107,15 +107,16 @@ internal sealed class EmbeddedSourceTempFileStore : IDisposable
         var directory = GetOrCreateDirectory();
         for (var attempt = 0; attempt < MaximumWriteAttempts; attempt++)
         {
-            var path = Path.Combine(directory, BuildFileName(methodName, documentPath));
+            var path = Path.Join(directory, BuildFileName(methodName, documentPath));
             try
             {
                 using var stream = new FileStream(path, CreateFileOptions());
                 stream.Write(bytes);
                 return path;
             }
-            catch (IOException) when (File.Exists(path))
+            catch (IOException handledException) when (File.Exists(path))
             {
+                System.Diagnostics.Trace.TraceInformation("Write: {0}", handledException);
                 // An extraordinarily unlikely GUID collision. Generate another name.
             }
         }
@@ -197,14 +198,17 @@ internal sealed class EmbeddedSourceTempFileStore : IDisposable
         {
             Directory.Delete(directory, recursive: true);
         }
-        catch (DirectoryNotFoundException)
+        catch (DirectoryNotFoundException handledException)
         {
+            System.Diagnostics.Trace.TraceInformation("DeleteDirectory: {0}", handledException);
         }
-        catch (IOException)
+        catch (IOException handledException)
         {
+            System.Diagnostics.Trace.TraceInformation("DeleteDirectory: {0}", handledException);
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException handledException)
         {
+            System.Diagnostics.Trace.TraceInformation("DeleteDirectory: {0}", handledException);
         }
     }
 

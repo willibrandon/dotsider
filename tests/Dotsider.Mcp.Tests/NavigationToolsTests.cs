@@ -227,12 +227,14 @@ public class NavigationToolsTests : McpServerTestBase
 
     private static int s_nextPid = 999_901;
 
+    private static int NextPid() => Interlocked.Increment(ref s_nextPid);
+
     private static RealListenerHandle CreateDiffListener(
         string leftDll, string rightDll,
         Func<int> currentTabProvider,
         Func<DiffFilterMode> filterModeProvider)
     {
-        var pid = Interlocked.Increment(ref s_nextPid);
+        var pid = NextPid();
         var leftAnalyzer = new AssemblyAnalyzer(leftDll);
         var rightAnalyzer = new AssemblyAnalyzer(rightDll);
 
@@ -277,7 +279,7 @@ public class NavigationToolsTests : McpServerTestBase
         bool selectDll = false,
         int selectedDllTab = 0)
     {
-        var pid = Interlocked.Increment(ref s_nextPid);
+        var pid = NextPid();
         var packageAnalyzer = new NuGetPackageAnalyzer(nupkgPath);
 
         string? selectedDllName = null;
@@ -315,7 +317,7 @@ public class NavigationToolsTests : McpServerTestBase
     private async Task<(Hex1bApp app, NuGetState state, RealListenerHandle listener)>
         StartLiveNugetTuiAsync(string nupkgPath, CancellationToken ct)
     {
-        var pid = Interlocked.Increment(ref s_nextPid);
+        var pid = NextPid();
 
         var workload = new Hex1bAppWorkloadAdapter();
         var terminal = Hex1bTerminal.CreateBuilder()

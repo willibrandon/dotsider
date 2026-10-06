@@ -1,3 +1,4 @@
+using Dotsider.Core.Analysis;
 using BenchmarkDotNet.Attributes;
 using Dotsider.Core.Protocol;
 using Dotsider.Mcp;
@@ -47,9 +48,9 @@ public class McpToolBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        _coreLibPath = Path.Combine(RuntimeEnvironment.GetRuntimeDirectory(), "System.Private.CoreLib.dll");
+        _coreLibPath = Path.Join(RuntimeEnvironment.GetRuntimeDirectory(), "System.Private.CoreLib.dll");
         // Keep path short — macOS limits UDS paths to 104 characters
-        _socketDir = Path.Combine(Path.GetTempPath(), $"ds-{Guid.NewGuid().ToString("N")[..8]}");
+        _socketDir = Path.Join(Path.GetTempPath(), $"ds-{Guid.NewGuid().ToString("N")[..8]}");
 
         SetupSessionSockets();
         SetupMcpServer();
@@ -92,16 +93,19 @@ public class McpToolBenchmarks
         for (var i = 0; i < SessionSocketCount; i++)
         {
             var pid = 90000 + i;
-            var socketPath = Path.Combine(_socketDir, $"{pid}.dotsider.socket");
+            var socketPath = Path.Join(_socketDir, $"{pid}.dotsider.socket");
 
             if (File.Exists(socketPath))
                 File.Delete(socketPath);
 
-            var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            using var listenerOwner = new OwnedResource<Socket>(
+                new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified));
+            var listener = listenerOwner.Value;
             listener.Bind(new UnixDomainSocketEndPoint(socketPath));
             listener.Listen(5);
 
-            var cts = new CancellationTokenSource();
+            using var cancellationOwner = new OwnedResource<CancellationTokenSource>(new CancellationTokenSource());
+            var cts = cancellationOwner.Value;
             var loop = Task.Run(async () =>
             {
                 while (!cts.Token.IsCancellationRequested)
@@ -117,6 +121,8 @@ public class McpToolBenchmarks
             });
 
             _sessionSockets.Add((listener, socketPath, loop, cts));
+            listenerOwner.Release();
+            cancellationOwner.Release();
         }
     }
 
@@ -130,7 +136,11 @@ public class McpToolBenchmarks
         _cts.Cancel();
         _clientToServer.Writer.Complete();
         _serverToClient.Writer.Complete();
-        try { _serverTask.Wait(TimeSpan.FromSeconds(2)); } catch { }
+        try { _serverTask.Wait(TimeSpan.FromSeconds(2)); }
+        catch (Exception handledException) when (handledException is AggregateException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Cleanup: {0}", handledException);
+        }
         _serviceProvider.DisposeAsync().AsTask().GetAwaiter().GetResult();
         _cts.Dispose();
 
@@ -139,14 +149,22 @@ public class McpToolBenchmarks
             cts.Cancel();
             listener.Close();
             listener.Dispose();
-            try { loop.Wait(TimeSpan.FromSeconds(2)); } catch { }
+            try { loop.Wait(TimeSpan.FromSeconds(2)); }
+            catch (Exception handledException) when (handledException is AggregateException)
+            {
+                System.Diagnostics.Trace.TraceInformation("Cleanup: {0}", handledException);
+            }
             if (File.Exists(path)) File.Delete(path);
             cts.Dispose();
         }
 
         _sessionSockets.Clear();
 
-        try { Directory.Delete(_socketDir, recursive: true); } catch { }
+        try { Directory.Delete(_socketDir, recursive: true); }
+        catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Trace.TraceInformation("Cleanup: {0}", handledException);
+        }
     }
 
     // --- Direct-mode tools ---
@@ -250,6 +268,9 @@ public class McpToolBenchmarks
             await writer.WriteLineAsync(
                 JsonSerializer.Serialize(response, DotsiderJsonContext.Protocol.DotsiderResponse));
         }
-        catch { }
+        catch (Exception handledException) when (handledException is System.IO.IOException or UnauthorizedAccessException or System.Net.Sockets.SocketException or OperationCanceledException or System.Text.Json.JsonException)
+        {
+            System.Diagnostics.Trace.TraceInformation("HandleSessionRequestAsync: {0}", handledException);
+        }
     }
 }

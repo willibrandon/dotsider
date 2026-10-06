@@ -49,7 +49,7 @@ public class NativeSymbolReaderPeTests
         var dir = Directory.CreateTempSubdirectory("dotsider-pdata-");
         try
         {
-            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            var exeCopy = Path.Join(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
             File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
             var bytes = File.ReadAllBytes(exeCopy);
 
@@ -85,11 +85,11 @@ public class NativeSymbolReaderPeTests
         var dir = Directory.CreateTempSubdirectory("dotsider-stalepdb-");
         try
         {
-            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            var exeCopy = Path.Join(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
             File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
             File.WriteAllBytes(
-                Path.Combine(dir.FullName, Path.GetFileNameWithoutExtension(exeCopy) + ".pdb"),
-                SyntheticImageBuilders.BuildMsf(4096, PdbInfoStream(Guid.NewGuid(), id!.Value.Age)));
+                Path.Join(dir.FullName, Path.GetFileNameWithoutExtension(exeCopy) + ".pdb"),
+                SyntheticImageBuilders.BuildMsf(4096, PdbInfoStream(Guid.NewGuid(), TestAssert.HasValue(id).Age)));
 
             var info = NativeSymbolReader.Read(exeCopy, File.ReadAllBytes(exeCopy), []);
 
@@ -125,9 +125,9 @@ public class NativeSymbolReaderPeTests
         var dir = Directory.CreateTempSubdirectory("dotsider-badpdb-");
         try
         {
-            var exeCopy = Path.Combine(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
+            var exeCopy = Path.Join(dir.FullName, Path.GetFileName(Samples.NativeAotConsoleExe!));
             File.Copy(Samples.NativeAotConsoleExe!, exeCopy);
-            var pdbPath = Path.Combine(dir.FullName, Path.GetFileNameWithoutExtension(exeCopy) + ".pdb");
+            var pdbPath = Path.Join(dir.FullName, Path.GetFileNameWithoutExtension(exeCopy) + ".pdb");
 
             // Not an MSF container at all.
             File.WriteAllBytes(pdbPath, [0xDE, 0xAD, 0xBE, 0xEF]);
@@ -137,7 +137,7 @@ public class NativeSymbolReaderPeTests
 
             // Identity matches, but there is no DBI stream to read symbols from.
             File.WriteAllBytes(pdbPath,
-                SyntheticImageBuilders.BuildMsf(4096, PdbInfoStream(id!.Value.Guid, id.Value.Age)));
+                SyntheticImageBuilders.BuildMsf(4096, PdbInfoStream(TestAssert.HasValue(id).Guid, TestAssert.HasValue(id).Age)));
             var empty = NativeSymbolReader.Read(exeCopy, File.ReadAllBytes(exeCopy), []);
             Assert.AreEqual(NativeSymbolStatus.CorruptSymbolFile, empty.Status);
             Assert.Contains("no readable symbols", empty.Diagnostic!);

@@ -4,6 +4,20 @@
 /// </summary>
 internal static class TestAssert
 {
+    /// <summary>Returns a nullable value or fails the test with a useful assertion error.</summary>
+    /// <typeparam name="T">The value type being asserted.</typeparam>
+    /// <param name="value">The value that must be present.</param>
+    /// <returns>The unwrapped value.</returns>
+    public static T HasValue<T>(T? value) where T : struct =>
+        value ?? throw new AssertFailedException("Expected a non-null value.");
+
+    /// <summary>Returns a reference or fails the test before it can be dereferenced.</summary>
+    /// <typeparam name="T">The reference type being asserted.</typeparam>
+    /// <param name="value">The reference that must be present.</param>
+    /// <returns>The non-null reference.</returns>
+    public static T NotNull<T>(T? value) where T : class =>
+        value ?? throw new AssertFailedException("Expected a non-null reference.");
+
     /// <summary>
     /// Applies an assertion to every value and prefixes failures with the item index.
     /// This mirrors the useful diagnostic shape of xUnit's collection assertions.

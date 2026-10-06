@@ -173,13 +173,13 @@ internal static class NativeAotVerificationApp
         bool release = mode.Equals(ReleaseMode, StringComparison.Ordinal);
         string executableExtension = rid.StartsWith("win-", StringComparison.Ordinal) ? ".exe" : "";
         string outputRoot = release
-            ? Path.Combine(repositoryRoot, "artifacts", "native-aot-release", rid)
-            : Path.Combine(repositoryRoot, "artifacts", "native-aot", rid);
-        string nativeRoot = release ? Path.Combine(outputRoot, "publish") : outputRoot;
-        string symbolRoot = Path.Combine(outputRoot, "symbols");
-        string packageRoot = Path.Combine(outputRoot, "packages");
-        string smokeOutput = Path.Combine(outputRoot, "runtime-tracing");
-        string traceTargetOutput = Path.Combine(outputRoot, "runtime-tracing-target");
+            ? Path.Join(repositoryRoot, "artifacts", "native-aot-release", rid)
+            : Path.Join(repositoryRoot, "artifacts", "native-aot", rid);
+        string nativeRoot = release ? Path.Join(outputRoot, "publish") : outputRoot;
+        string symbolRoot = Path.Join(outputRoot, "symbols");
+        string packageRoot = Path.Join(outputRoot, "packages");
+        string smokeOutput = Path.Join(outputRoot, "runtime-tracing");
+        string traceTargetOutput = Path.Join(outputRoot, "runtime-tracing-target");
 
         RecreateDirectory(repositoryRoot, outputRoot);
         Directory.CreateDirectory(nativeRoot);
@@ -201,7 +201,7 @@ internal static class NativeAotVerificationApp
 
         foreach ((string name, string project, string packageId) in s_products)
         {
-            string output = Path.Combine(nativeRoot, name);
+            string output = Path.Join(nativeRoot, name);
             Directory.CreateDirectory(output);
             RunDotnetChecked(
                 repositoryRoot,
@@ -218,7 +218,7 @@ internal static class NativeAotVerificationApp
                     output,
                 ]);
 
-            string executable = Path.Combine(output, name + executableExtension);
+            string executable = Path.Join(output, name + executableExtension);
             RequireFile(executable, $"Missing Native AOT executable for {name}.");
             ValidateTraceHost(output, name);
             RunChecked(executable, ["--version"], repositoryRoot);
@@ -228,12 +228,12 @@ internal static class NativeAotVerificationApp
                 MoveNativeSymbols(
                     repositoryRoot,
                     output,
-                    Path.Combine(symbolRoot, name),
+                    Path.Join(symbolRoot, name),
                     name,
                     rid);
                 File.Copy(
-                    Path.Combine(repositoryRoot, "LICENSE"),
-                    Path.Combine(output, "LICENSE"));
+                    Path.Join(repositoryRoot, "LICENSE"),
+                    Path.Join(output, "LICENSE"));
                 ValidateReleasePayload(output, name, executableExtension, rid);
             }
 
@@ -252,7 +252,7 @@ internal static class NativeAotVerificationApp
                     packageRoot,
                 ]);
 
-            string package = Path.Combine(packageRoot, $"{packageId}.{rid}.{version}.nupkg");
+            string package = Path.Join(packageRoot, $"{packageId}.{rid}.{version}.nupkg");
             RequireFile(package, $"Missing tool package for {packageId}.{rid}.");
             ValidateToolPackage(package, name, executableExtension, release);
             if (!release)
@@ -260,7 +260,7 @@ internal static class NativeAotVerificationApp
                 InstallAndRunTool(
                     repositoryRoot,
                     packageRoot,
-                    Path.Combine(nativeRoot, name + "-tool"),
+                    Path.Join(nativeRoot, name + "-tool"),
                     $"{packageId}.{rid}",
                     name,
                     version);
@@ -280,15 +280,15 @@ internal static class NativeAotVerificationApp
                 smokeOutput,
             ]);
 
-        string traceTarget = Path.Combine(traceTargetOutput, "HelloWorld.dll");
-        string smokeExecutable = Path.Combine(
+        string traceTarget = Path.Join(traceTargetOutput, "HelloWorld.dll");
+        string smokeExecutable = Path.Join(
             smokeOutput,
             "Dotsider.NativeAotSmoke" + executableExtension);
         RequireFile(smokeExecutable, "Missing Native AOT runtime tracing smoke executable.");
         RequireFile(traceTarget, "Missing runtime tracing fixture.");
         RunChecked(smokeExecutable, [traceTarget], repositoryRoot);
 
-        string dotsiderExecutable = Path.Combine(nativeRoot, "dotsider", "dotsider" + executableExtension);
+        string dotsiderExecutable = Path.Join(nativeRoot, "dotsider", "dotsider" + executableExtension);
         string json = RunCapturedChecked(
             dotsiderExecutable,
             ["analyze", dotsiderExecutable, "--json"],
@@ -323,7 +323,7 @@ internal static class NativeAotVerificationApp
             ]);
 
         string shimExtension = OperatingSystem.IsWindows() ? ".cmd" : "";
-        string shim = Path.Combine(toolPath, commandName + shimExtension);
+        string shim = Path.Join(toolPath, commandName + shimExtension);
         RequireFile(shim, $"The installed {packageId} tool shim is missing.");
         if (OperatingSystem.IsWindows())
         {
@@ -336,7 +336,7 @@ internal static class NativeAotVerificationApp
 
     private static void ValidateTraceHost(string output, string productName)
     {
-        string traceHost = Path.Combine(output, "tracehost", "dotsider-tracehost.dll");
+        string traceHost = Path.Join(output, "tracehost", "dotsider-tracehost.dll");
         if (productName.Equals("dotsider", StringComparison.Ordinal))
         {
             RequireFile(traceHost, "The dotsider Native AOT payload does not contain its runtime trace host.");
@@ -435,7 +435,7 @@ internal static class NativeAotVerificationApp
         {
             Directory.Move(
                 sourceDirectory,
-                Path.Combine(destination, Path.GetFileName(sourceDirectory)));
+                Path.Join(destination, Path.GetFileName(sourceDirectory)));
         }
 
         string[] symbols =
@@ -445,7 +445,7 @@ internal static class NativeAotVerificationApp
         ];
         foreach (string symbol in symbols)
         {
-            File.Move(symbol, Path.Combine(destination, Path.GetFileName(symbol)));
+            File.Move(symbol, Path.Join(destination, Path.GetFileName(symbol)));
         }
 
         if (!Directory.EnumerateFiles(destination, "*", SearchOption.AllDirectories).Any())
@@ -466,7 +466,7 @@ internal static class NativeAotVerificationApp
         string executableExtension,
         string rid)
     {
-        string traceHostRoot = Path.GetFullPath(Path.Combine(output, "tracehost"))
+        string traceHostRoot = Path.GetFullPath(Path.Join(output, "tracehost"))
             + Path.DirectorySeparatorChar;
         string[] unexpected =
         [

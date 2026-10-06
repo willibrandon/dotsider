@@ -24,22 +24,22 @@ public static class AssemblyLoader
     /// </returns>
     public static AssemblyOpenResult Open(string filePath)
     {
-        var analyzer = new AssemblyAnalyzer(filePath);
+        using var owner = new OwnedResource<AssemblyAnalyzer>(new AssemblyAnalyzer(filePath));
+        var analyzer = owner.Value;
 
         // If it has metadata, it's a regular managed assembly
         if (analyzer.HasMetadata)
-            return new AssemblyOpenResult.Direct(analyzer);
+            return new AssemblyOpenResult.Direct(owner.Release());
 
         // No metadata — try apphost companion .dll
         var companion = ApphostDetector.FindCompanionDll(filePath);
         if (companion is not null)
-            return new AssemblyOpenResult.ApphostWithCompanion(analyzer, companion);
+            return new AssemblyOpenResult.ApphostWithCompanion(owner.Release(), companion);
 
         // No companion — try single-file bundle
         var bundled = ApphostDetector.FindBundledEntryAssembly(filePath);
         if (bundled is not null)
         {
-            analyzer.Dispose();
             var entryAnalyzer = new AssemblyAnalyzer(
                 bundled.Value.Bytes, filePath, sourceBundlePath: filePath,
                 displayName: bundled.Value.Name);
@@ -50,9 +50,9 @@ public static class AssemblyLoader
         // Probed only after the bundle check: R2R assemblies inside a bundle also
         // contain RTR signatures.
         if (analyzer.NativeAotInfo is not null)
-            return new AssemblyOpenResult.NativeAot(analyzer);
+            return new AssemblyOpenResult.NativeAot(owner.Release());
 
         // Native binary with no metadata (unknown format)
-        return new AssemblyOpenResult.Direct(analyzer);
+        return new AssemblyOpenResult.Direct(owner.Release());
     }
 }
