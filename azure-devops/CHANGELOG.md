@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.26.3
+## 0.26.4
 
 - Use private temporary directories for size-check reports and managed baselines, preserving their permissions when clearing stale baseline files.
 - Update dependencies and fix Windows native publishing in the released Dotsider tools.

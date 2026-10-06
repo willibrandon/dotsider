@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+    <Compile Include="../../scripts/NativeAotPayloadValidator.cs" Link="NativeAotPayloadValidator.cs" />
   </ItemGroup>
 
   <ItemGroup>
