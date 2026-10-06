@@ -3,6 +3,7 @@
 
 	<PropertyGroup>
 		<MSTestAnalysisMode>All</MSTestAnalysisMode>
+		<MicrosoftTestingExtensionsCodeCoverageVersion>18.11.2</MicrosoftTestingExtensionsCodeCoverageVersion>
 		<IncludeSharedTestSources Condition="'$(IncludeSharedTestSources)' == ''">true</IncludeSharedTestSources>
 	</PropertyGroup>
 
