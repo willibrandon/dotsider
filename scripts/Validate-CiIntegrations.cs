@@ -74,7 +74,7 @@ internal static class CiIntegrationValidator
         Require(source.Contains("node \"$GITHUB_ACTION_PATH/integrations/size-check/dist/github.js\"", StringComparison.Ordinal)
             && !source.Contains("github.action_path", StringComparison.Ordinal),
             "action.yml must locate its runtime through GITHUB_ACTION_PATH, which the runner maps into job containers.");
-        Require(source.Contains("actions/setup-node@v7.0.0", StringComparison.Ordinal)
+        Require(source.Contains("uses: actions/setup-node@", StringComparison.Ordinal)
             && source.Contains("node-version: '24'", StringComparison.Ordinal),
             "action.yml must select Node 24 explicitly.");
         int runIndex = source.IndexOf("Run Dotsider size check", StringComparison.Ordinal);
