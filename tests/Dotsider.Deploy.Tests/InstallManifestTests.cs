@@ -9,6 +9,7 @@ namespace Dotsider.Deploy.Tests;
 /// System services must invoke the installed Native AOT helper rather than removed scripts.
 /// </summary>
 [TestClass]
+[OSCondition(OperatingSystems.Linux)]
 public sealed class InstallManifestTests
 {
     /// <summary>

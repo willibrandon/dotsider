@@ -6,6 +6,7 @@ namespace Dotsider.Deploy.Tests;
 /// Environment credentials and temporary files are restored after each test.
 /// </summary>
 [TestClass]
+[OSCondition(OperatingSystems.Linux)]
 public sealed class DeploymentAppTests
 {
     /// <summary>

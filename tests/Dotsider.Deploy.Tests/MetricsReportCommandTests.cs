@@ -9,6 +9,7 @@ namespace Dotsider.Deploy.Tests;
 /// Tests use an isolated log file and deterministic UTC time.
 /// </summary>
 [TestClass]
+[OSCondition(OperatingSystems.Linux)]
 public sealed class MetricsReportCommandTests
 {
     /// <summary>
