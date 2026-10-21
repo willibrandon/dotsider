@@ -12,7 +12,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="BenchmarkDotNet" />
-		<PackageReference Include="Microsoft.Diagnostics.NETCore.Client" VersionOverride="0.2.750501" />
+		<PackageReference Include="Microsoft.Diagnostics.NETCore.Client" />
 		<PackageReference Include="ModelContextProtocol" />
 	</ItemGroup>
 
