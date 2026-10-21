@@ -29,6 +29,7 @@ public sealed class IlTreeVirtualizationTests : IDisposable
     private DotsiderState? _state;
     private CancellationTokenSource? _cts;
     private List<IlTreeRow>? _rows;
+    private readonly AppFocusProbe _focus = new();
 
     /// <summary>
     /// Rows occupied by the harness header above the tree. Mutable mid-test so the
@@ -62,6 +63,7 @@ public sealed class IlTreeVirtualizationTests : IDisposable
             _state ??= new DotsiderState(_app!, Samples.HelloWorldDll) { CurrentTab = TabId.IlInspector };
             // Mirror DotsiderApp.Build: only the root build advances the generation.
             _state.NotifyBuildStarted();
+            _focus.Observe(_app!);
             IlInspectorView.SyncTreeScroll(_state, _rows!);
             var tree = IlTreeList.Build(
                 _rows!,
@@ -93,7 +95,7 @@ public sealed class IlTreeVirtualizationTests : IDisposable
             (sp = _state?.IlScrollPanelNode) is { ViewportSize: > 0 },
             description: "panel captured and arranged");
         _app!.RequestFocus(node => node is ScrollPanelNode);
-        await auto.WaitUntilAsync(_ => _app.FocusedNode is ScrollPanelNode,
+        await auto.WaitUntilAsync(_ => _focus.Poll(_app).FocusedNode is ScrollPanelNode,
             description: "panel focused");
         return sp!;
     }

@@ -21,6 +21,7 @@ public class DiffModeYankIntegrationTests : IDisposable
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private DiffState? _state;
+    private readonly AppFocusProbe _focus = new();
     private CancellationTokenSource? _cts;
     private Task? _runTask;
 
@@ -40,6 +41,7 @@ public class DiffModeYankIntegrationTests : IDisposable
             {
                 _state ??= new DiffState(_hex1bApp!, Samples.RichLibraryDll, Samples.RichLibraryV2Dll);
                 diffApp ??= new DiffApp(_state);
+                _focus.Observe(_hex1bApp!);
                 return Task.FromResult<Hex1bWidget>(diffApp.Build(ctx));
             },
             new Hex1bAppOptions
@@ -69,7 +71,7 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Home)
             .WaitUntil(
                 _ => Equals(_state!.DiffFocusedKey, expectedKey)
-                    && _state.App.FocusedNode is TableNode<DiffEntry<T>> table
+                    && _focus.Poll(_state.App).FocusedNode is TableNode<DiffEntry<T>> table
                     && Equals(table.FocusedKey, expectedKey),
                 TimeSpan.FromSeconds(5))
             .Build()
@@ -109,7 +111,7 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es }
+                return _state is not null && _focus.Poll(_state.App).FocusedNode is EditorNode { State: var es }
                     && es == _state.LeftInfoEditorState;
             }, TimeSpan.FromSeconds(5))
             .Build()
@@ -120,7 +122,7 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es }
+                return _state is not null && _focus.Poll(_state.App).FocusedNode is EditorNode { State: var es }
                     && es == _state.RightInfoEditorState;
             }, TimeSpan.FromSeconds(5))
             .Build()
@@ -131,7 +133,7 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es }
+                return _state is not null && _focus.Poll(_state.App).FocusedNode is EditorNode { State: var es }
                     && es == _state.ChangeStatsEditorState;
             }, TimeSpan.FromSeconds(5))
             .Build()
@@ -161,7 +163,7 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab) // Focus left info editor
             .WaitUntil(_ =>
             {
-                return _state is not null && _state.App.FocusedNode is EditorNode { State: var editorState }
+                return _state is not null && _focus.Poll(_state.App).FocusedNode is EditorNode { State: var editorState }
                         && ReferenceEquals(editorState, _state.LeftInfoEditorState);
             }, TimeSpan.FromSeconds(5))
             .Build()
@@ -276,6 +278,8 @@ public class DiffModeYankIntegrationTests : IDisposable
         // Search for something that should match multiple types
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion) // /
+            .WaitUntil(_ => _focus.Poll(_state!.App).FocusedNode is TextBoxNode, TimeSpan.FromSeconds(5),
+                "search TextBox focused")
             .Type("Model")
             .Key(Hex1bKey.Enter) // Confirm search
             .WaitUntil(_ =>
@@ -375,7 +379,7 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es }
+                return _state is not null && _focus.Poll(_state.App).FocusedNode is EditorNode { State: var es }
                     && es == _state.LeftInfoEditorState;
             }, TimeSpan.FromSeconds(5))
             .Build()
@@ -423,7 +427,7 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es } && es == _state.RightInfoEditorState;
+                return _state is not null && _focus.Poll(_state.App).FocusedNode is EditorNode { State: var es } && es == _state.RightInfoEditorState;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -464,19 +468,19 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es } && es == _state.LeftInfoEditorState;
+                return _state is not null && _focus.Poll(_state.App).FocusedNode is EditorNode { State: var es } && es == _state.LeftInfoEditorState;
             }, TimeSpan.FromSeconds(5))
             // Tab to right info
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es } && es == _state.RightInfoEditorState;
+                return _state is not null && _focus.Poll(_state.App).FocusedNode is EditorNode { State: var es } && es == _state.RightInfoEditorState;
             }, TimeSpan.FromSeconds(5))
             // Tab to change stats
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state is not null && _state.App.FocusedNode is EditorNode { State: var es } && es == _state.ChangeStatsEditorState;
+                return _state is not null && _focus.Poll(_state.App).FocusedNode is EditorNode { State: var es } && es == _state.ChangeStatsEditorState;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -630,6 +634,8 @@ public class DiffModeYankIntegrationTests : IDisposable
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion)
+            .WaitUntil(_ => _focus.Poll(_state!.App).FocusedNode is TextBoxNode, TimeSpan.FromSeconds(5),
+                "search TextBox focused")
             .Type("get")
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ =>
@@ -697,6 +703,8 @@ public class DiffModeYankIntegrationTests : IDisposable
 
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.OemQuestion)
+            .WaitUntil(_ => _focus.Poll(_state!.App).FocusedNode is TextBoxNode, TimeSpan.FromSeconds(5),
+                "search TextBox focused")
             .Type("System")
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ =>
@@ -801,7 +809,7 @@ public class DiffModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state!.App.FocusedNode is EditorNode;
+                return _focus.Poll(_state!.App).FocusedNode is EditorNode;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);

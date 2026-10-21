@@ -22,6 +22,7 @@ public class IlInspectorScrollbarTests : IDisposable
     private DotsiderState? _state;
     private CancellationTokenSource? _cts;
     private Task? _runTask;
+    private readonly AppFocusProbe _focus = new();
 
     /// <summary>
     /// Creates a dotsider test app with mouse input enabled so wheel/drag/track tests can
@@ -48,6 +49,7 @@ public class IlInspectorScrollbarTests : IDisposable
             {
                 _state ??= new DotsiderState(_hex1bApp!, dllPath);
                 dotsiderApp ??= new DotsiderApp(_state);
+                _focus.Observe(_hex1bApp!);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
             new Hex1bAppOptions
@@ -123,20 +125,8 @@ public class IlInspectorScrollbarTests : IDisposable
             .ApplyAsync(terminal, ct);
     }
 
-    /// <summary>
-    /// Copies the focus ring to an array, treating the transient
-    /// exceptions a concurrent render-thread rebuild can raise mid-copy as an empty result.
-    /// Hex1b rebuilds the ring (a plain list) after every frame, so a read from the test poll
-    /// thread must tolerate that race and retry rather than fault the test.
-    /// </summary>
-    private static Hex1bNode[] SnapshotFocusables(Hex1bApp app)
-    {
-        try { return [.. app.Focusables]; }
-        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException) { return []; }
-    }
-
-    private static ScrollPanelNode? FindPanel(Hex1bApp app)
-        => SnapshotFocusables(app).OfType<ScrollPanelNode>().FirstOrDefault();
+    private ScrollPanelNode? FindPanel(Hex1bApp app)
+        => _focus.Poll(app).Focusables.OfType<ScrollPanelNode>().FirstOrDefault();
 
     /// <summary>
     /// Whether the tree overflows the panel viewport. The panel's own IsScrollable is
@@ -154,7 +144,7 @@ public class IlInspectorScrollbarTests : IDisposable
     /// <summary>The tree's state-owned scroll offset (first visible row index).</summary>
     private int TreeOffset => _state!.IlTreeScrollOffset;
 
-    private static async Task<ScrollPanelNode> WaitForPanelAsync(
+    private async Task<ScrollPanelNode> WaitForPanelAsync(
         Hex1bTerminalAutomator auto, Hex1bApp app)
     {
         // Single predicate that re-evaluates the panel reference on every poll, so
@@ -165,12 +155,12 @@ public class IlInspectorScrollbarTests : IDisposable
         ScrollPanelNode? captured = null;
         await auto.WaitUntilAsync(_ =>
         {
-            // Read the panel and the focused node from one snapshot so a rebuild between the two
-            // reads cannot yield an inconsistent pair.
-            var focusables = SnapshotFocusables(app);
-            var current = focusables.OfType<ScrollPanelNode>().FirstOrDefault();
+            // Read the panel and the focused node from one root-build observation so the pair
+            // always describes the same focus ring.
+            var focus = _focus.Poll(app);
+            var current = focus.Focusables.OfType<ScrollPanelNode>().FirstOrDefault();
             if (current is null || current.ViewportSize <= 0) return false;
-            if (focusables.FirstOrDefault(n => n.IsFocused) is not ScrollPanelNode focused
+            if (focus.FocusedNode is not ScrollPanelNode focused
                 || !ReferenceEquals(focused, current)) return false;
             captured = current;
             return true;
@@ -212,7 +202,7 @@ public class IlInspectorScrollbarTests : IDisposable
     /// min(viewport, rows) tall — so agreement proves a render with the post-mutation
     /// rows has been arranged into the panel and the binding closure is current.
     /// </summary>
-    private static async Task SetSelectionDirectAsync(
+    private async Task SetSelectionDirectAsync(
         Hex1bTerminalAutomator auto,
         Hex1bApp app,
         DotsiderState state,
@@ -232,7 +222,7 @@ public class IlInspectorScrollbarTests : IDisposable
 
         app.RequestFocus(node => node is ScrollPanelNode);
         app.Invalidate();
-        await auto.WaitUntilAsync(_ => SnapshotFocusables(app).FirstOrDefault(n => n.IsFocused) is ScrollPanelNode,
+        await auto.WaitUntilAsync(_ => _focus.Poll(app).FocusedNode is ScrollPanelNode,
             description: "ScrollPanelNode focused after direct selection");
     }
 
@@ -821,17 +811,8 @@ public class IlInspectorScrollbarTests : IDisposable
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         await WaitForPanelAsync(auto, app);
 
-        // Snapshot the ring without racing the render thread's per-frame rebuild (an empty
-        // snapshot means the rebuild is in flight — poll again), then assert the panel is unique.
-        var count = 0;
-        await auto.WaitUntilAsync(_ =>
-        {
-            var focusables = SnapshotFocusables(app);
-            if (focusables.Length == 0) return false;
-            count = focusables.OfType<ScrollPanelNode>().Count();
-            return true;
-        }, description: "focus ring observed without a concurrent rebuild");
-        Assert.AreEqual(1, count);
+        var focus = await _focus.NextAsync(app, ct);
+        Assert.HasCount(1, focus.Focusables.OfType<ScrollPanelNode>());
 
         _cts!.Cancel();
         await runTask;
@@ -1321,16 +1302,32 @@ public class IlInspectorScrollbarTests : IDisposable
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(10));
         await WaitForPanelAsync(auto, app);
 
-        // Navigate to Hex (Tab 5) via the cross-view stack.
-        _state!.CrossViewBackStack.Push((_state!.CurrentTab, _state!.PeSubTab));
-        _state!.NavigateToTab(Dotsider.TabId.HexDump);
-        _state!.App.RequestFocus(node => node is Hex1b.EditorNode);
-        _state!.App.Invalidate();
-        await auto.WaitUntilAsync(_ => _state!.App.FocusedNode is Hex1b.EditorNode,
+        // Select a method with a body on the render thread so the IL tab registers its
+        // x (View in hex) binding for it.
+        var method = _state!.Analyzer.MethodDefs.First(m => m.Rva > 0);
+        var typeDef = _state.Analyzer.TypeDefs.First(t => t.FullName == method.DeclaringType);
+        var ns = string.IsNullOrEmpty(typeDef.Namespace) ? "(global)" : typeDef.Namespace;
+        _state.PendingMutations.Enqueue(s =>
+        {
+            s.IlTreeExpansionState[$"ns:{ns}"] = true;
+            s.IlTreeExpansionState[$"type:{typeDef.FullName}"] = true;
+            s.IlSelectedMethod = method;
+            s.IlSelectedMethodOwner = null;
+            s.SetIlFocusedTreeKey($"method:{method.Token}");
+        });
+        _state.RequestExtraFrame();
+        await auto.WaitUntilAsync(_ => _state.IlEditorMethod?.Token == method.Token,
+            description: "method selected in the IL tree");
+
+        // Real x key → NavigateToHexOffset pushes IL onto the cross-view stack.
+        await auto.KeyAsync(Hex1bKey.X, ct: ct);
+        await auto.WaitUntilAsync(_ => _focus.Poll(app).FocusedNode is Hex1b.EditorNode hexEditor
+                && hexEditor.State == _state.HexEditorState,
             description: "Hex tab focuses editor");
 
-        _state!.NavigateBack();
-        await auto.WaitUntilAsync(_ => _state!.App.FocusedNode is ScrollPanelNode,
+        // Real Esc → NavigateBack → RequestContentFocus on the IL tab.
+        await auto.EscapeAsync(ct);
+        await auto.WaitUntilAsync(_ => _focus.Poll(app).FocusedNode is ScrollPanelNode,
             description: "NavigateBack focuses ScrollPanelNode on IL");
 
         _cts!.Cancel();

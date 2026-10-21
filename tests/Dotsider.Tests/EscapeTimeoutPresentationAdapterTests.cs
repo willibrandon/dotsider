@@ -643,6 +643,7 @@ public class EscapeTimeoutPresentationAdapterTests
         var escAdapter = new EscapeTimeoutPresentationAdapter(queued, TimeSpan.FromMilliseconds(50));
         DotsiderState? state = null;
         DotsiderApp? dotsiderApp = null;
+        var focus = new AppFocusProbe();
 
         await using var terminal = Hex1bTerminal.CreateBuilder()
             .WithPresentation(escAdapter)
@@ -655,6 +656,7 @@ public class EscapeTimeoutPresentationAdapterTests
             {
                 state ??= new DotsiderState(app, Samples.HelloWorldDll);
                 dotsiderApp ??= new DotsiderApp(state);
+                focus.Observe(app);
                 return dotsiderApp.Build(ctx);
             })
             .Build();
@@ -674,7 +676,7 @@ public class EscapeTimeoutPresentationAdapterTests
         await TestHelpers.WaitUntilAsync(
             () => state is not null
                   && state.Search[state.CurrentTab].IsActive
-                  && state.App.FocusedNode is TextBoxNode,
+                  && focus.Poll(state.App).FocusedNode is TextBoxNode,
             TimeSpan.FromSeconds(10));
 
         // Type the query and confirm with Enter

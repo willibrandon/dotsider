@@ -24,6 +24,7 @@ public class PreIlcIlInspectorTests : IDisposable
     private DotsiderState? _state;
     private CancellationTokenSource? _cts;
     private Task? _runTask;
+    private readonly AppFocusProbe _focus = new();
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) CreateDotsiderApp(string path, int width, int height)
     {
@@ -40,6 +41,7 @@ public class PreIlcIlInspectorTests : IDisposable
             {
                 _state ??= new DotsiderState(_hex1bApp!, path);
                 dotsiderApp ??= new DotsiderApp(_state);
+                _focus.Observe(_hex1bApp!);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
             new Hex1bAppOptions { WorkloadAdapter = _workload, EnableInputCoalescing = false });
@@ -189,7 +191,9 @@ public class PreIlcIlInspectorTests : IDisposable
     }
 
     private EditorNode? GetEditorNode(EditorState? editorState)
-        => _state?.App.Focusables
-            .OfType<EditorNode>()
-            .FirstOrDefault(node => ReferenceEquals(node.State, editorState));
+        => _state is null
+            ? null
+            : _focus.Poll(_state.App).Focusables
+                .OfType<EditorNode>()
+                .FirstOrDefault(node => ReferenceEquals(node.State, editorState));
 }
