@@ -18,6 +18,7 @@ public class NuGetModeYankIntegrationTests : IDisposable
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private NuGetState? _state;
+    private readonly AppFocusProbe _focus = new();
     private CancellationTokenSource? _cts;
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) Launch()
@@ -37,6 +38,7 @@ public class NuGetModeYankIntegrationTests : IDisposable
             {
                 _state ??= new NuGetState(_hex1bApp!, Samples.RichLibraryNupkg);
                 nugetApp ??= new NuGetApp(_state);
+                _focus.Observe(_hex1bApp!);
                 return Task.FromResult<Hex1bWidget>(nugetApp.Build(ctx));
             },
             new Hex1bAppOptions
@@ -67,7 +69,7 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         Assert.IsNotNull(_state!.FileTreeFocusedKey);
-        Assert.IsFalse(_state.App.FocusedNode is EditorNode,
+        Assert.IsFalse((await _focus.NextAsync(_state.App, ct)).FocusedNode is EditorNode,
             "Initial focus should be on table, not editor");
 
         _cts!.Cancel();
@@ -99,7 +101,7 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state!.App.FocusedNode is EditorNode;
+                return _focus.Poll(_state!.App).FocusedNode is EditorNode;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -109,7 +111,7 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state is not null && _state.App.FocusedNode is not EditorNode;
+                return _state is not null && _focus.Poll(_state.App).FocusedNode is not EditorNode;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -409,7 +411,7 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state!.App.FocusedNode is EditorNode;
+                return _focus.Poll(_state!.App).FocusedNode is EditorNode;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -479,7 +481,7 @@ public class NuGetModeYankIntegrationTests : IDisposable
         var state = _state!;
         await auto.KeyAsync(Hex1bKey.Tab, ct);
         await auto.WaitUntilAsync(_ =>
-            state.App.FocusedNode is EditorNode { State: var es }
+            _focus.Poll(state.App).FocusedNode is EditorNode { State: var es }
                 && ReferenceEquals(es, state.PackageInfoEditorState),
             description: "package info editor focused");
 
@@ -545,7 +547,7 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state!.App.FocusedNode is EditorNode;
+                return _focus.Poll(_state!.App).FocusedNode is EditorNode;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -873,7 +875,7 @@ public class NuGetModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state!.App.FocusedNode is EditorNode;
+                return _focus.Poll(_state!.App).FocusedNode is EditorNode;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);

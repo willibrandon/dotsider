@@ -23,6 +23,7 @@ public sealed class IlGoToDefinitionTests : IDisposable
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
+    private readonly AppFocusProbe _focus = new();
 
     private (Hex1bTerminal Terminal, Hex1bApp App) CreateDotsiderApp()
     {
@@ -41,6 +42,7 @@ public sealed class IlGoToDefinitionTests : IDisposable
                     CurrentTab = TabId.IlInspector
                 };
                 dotsiderApp ??= new DotsiderApp(_state);
+                _focus.Observe(_hex1bApp!);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
             new Hex1bAppOptions
@@ -105,7 +107,7 @@ public sealed class IlGoToDefinitionTests : IDisposable
     {
         await auto.KeyAsync(Hex1bKey.L, ct);
         await auto.WaitUntilAsync(
-            _ => _state!.App.FocusedNode is Hex1b.EditorNode { State: var editorState }
+            _ => _focus.Poll(_state!.App).FocusedNode is Hex1b.EditorNode { State: var editorState }
                 && ReferenceEquals(editorState, _state.IlEditorState),
             description: "IL editor focused");
     }
@@ -334,7 +336,7 @@ public sealed class IlGoToDefinitionTests : IDisposable
         // applies on a later frame; without an explicit wait, Down/Up below can race
         // a frame where focus is still on the tree and the cursor never moves.
         await auto.WaitUntilAsync(
-            _ => _state!.App.FocusedNode is Hex1b.EditorNode { State: var editorState }
+            _ => _focus.Poll(_state!.App).FocusedNode is Hex1b.EditorNode { State: var editorState }
                 && ReferenceEquals(editorState, _state.IlEditorState),
             description: "editor focused after Esc back");
         var cursorBeforeScroll = _state!.IlEditorState?.Cursor.Position.Value ?? -1;

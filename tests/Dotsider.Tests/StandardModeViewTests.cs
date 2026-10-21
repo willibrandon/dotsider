@@ -20,6 +20,7 @@ public class StandardModeViewTests(TestContext testContext) : IDisposable
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
+    private readonly AppFocusProbe _focus = new();
 
     private readonly TestContext _testContext = testContext;
 
@@ -82,6 +83,7 @@ public class StandardModeViewTests(TestContext testContext) : IDisposable
                         _state.CurrentTab = initialTab.Value;
                 }
                 dotsiderApp ??= new DotsiderApp(_state);
+                _focus.Observe(_hex1bApp!);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
             new Hex1bAppOptions
@@ -95,10 +97,9 @@ public class StandardModeViewTests(TestContext testContext) : IDisposable
 
     /// <summary>
     /// Waits until the dep-graph vertical <see cref="Hex1b.Nodes.ScrollbarNode"/> has settled and
-    /// returns its track geometry as the rightmost column, top row, and height. Reads the live
-    /// focus ring, which the render thread rebuilds each frame; a concurrent rebuild surfaces as
-    /// <see cref="InvalidOperationException"/> mid-enumeration and is treated as "not settled yet"
-    /// so the poll retries. Deriving the click target from the real bounds keeps the track tests
+    /// returns its track geometry as the rightmost column, top row, and height. Reads the focus
+    /// ring copied by the root build so the poll never enumerates the ring the render thread
+    /// rebuilds each frame. Deriving the click target from the real bounds keeps the track tests
     /// independent of the exact graph layout, which varies with content.
     /// </summary>
     /// <param name="auto">The automator whose default timeout bounds the wait.</param>
@@ -111,9 +112,7 @@ public class StandardModeViewTests(TestContext testContext) : IDisposable
         var trackHeight = 0;
         await auto.WaitUntilAsync(_ =>
         {
-            Hex1b.Nodes.ScrollbarNode? scrollbar;
-            try { scrollbar = _hex1bApp!.Focusables.OfType<Hex1b.Nodes.ScrollbarNode>().FirstOrDefault(); }
-            catch (InvalidOperationException) { return false; }
+            var scrollbar = _focus.Poll(_hex1bApp!).Focusables.OfType<Hex1b.Nodes.ScrollbarNode>().FirstOrDefault();
             if (scrollbar is null || scrollbar.Bounds.Height <= 0) return false;
             var bounds = scrollbar.Bounds;
             column = bounds.X + bounds.Width - 1;
@@ -1913,7 +1912,8 @@ public class StandardModeViewTests(TestContext testContext) : IDisposable
         // so the input router's hit-test will route the click to the scrollbar (and not, say,
         // a status-row text cell that happens to draw a │). This is the key check the review
         // called out: without it, the test could pass for the wrong reason.
-        var scrollbar = _hex1bApp!.Focusables.OfType<Hex1b.Nodes.ScrollbarNode>().FirstOrDefault();
+        var scrollbar = (await _focus.NextAsync(_hex1bApp!, cts.Token)).Focusables
+            .OfType<Hex1b.Nodes.ScrollbarNode>().FirstOrDefault();
         Assert.IsNotNull(scrollbar);
         var bounds = scrollbar!.Bounds;
         Assert.IsTrue(sbCol >= bounds.X && sbCol < bounds.X + bounds.Width &&
@@ -1969,7 +1969,8 @@ public class StandardModeViewTests(TestContext testContext) : IDisposable
             .Build()
             .ApplyAsync(terminal, cts.Token);
 
-        var interactableCount = app.Focusables.Count(n => n is Hex1b.Nodes.InteractableNode);
+        var interactableCount = (await _focus.NextAsync(app, cts.Token)).Focusables
+            .Count(n => n is Hex1b.Nodes.InteractableNode);
         Assert.AreEqual(1, interactableCount);
 
         cts.Cancel();

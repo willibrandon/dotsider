@@ -20,6 +20,7 @@ public class StandardModeYankIntegrationTests : IDisposable
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
+    private readonly AppFocusProbe _focus = new();
     private CancellationTokenSource? _cts;
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) Launch(
@@ -45,6 +46,7 @@ public class StandardModeYankIntegrationTests : IDisposable
                         _state.CurrentTab = initialTab.Value;
                 }
                 dotsiderApp ??= new DotsiderApp(_state);
+                _focus.Observe(_hex1bApp!);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
             new Hex1bAppOptions
@@ -63,7 +65,7 @@ public class StandardModeYankIntegrationTests : IDisposable
     /// </summary>
     private bool IsFocusedOnEditor()
     {
-        return _state?.App.FocusedNode is EditorNode;
+        return _state is not null && _focus.Poll(_state.App).FocusedNode is EditorNode;
     }
 
     /// <summary>
@@ -73,22 +75,18 @@ public class StandardModeYankIntegrationTests : IDisposable
     /// </summary>
     private bool IsFocusedOnEditor(EditorState? expectedState)
     {
-        return _state?.App.FocusedNode is EditorNode { State: var es }
+        return _state is not null
+                && _focus.Poll(_state.App).FocusedNode is EditorNode { State: var es }
                 && es == expectedState;
     }
 
     private EditorNode? FindEditorNode(EditorState? expectedState)
     {
-        try
-        {
-            return _hex1bApp?.Focusables
+        return _hex1bApp is null
+            ? null
+            : _focus.Poll(_hex1bApp).Focusables
                 .OfType<EditorNode>()
                 .FirstOrDefault(node => node.State == expectedState);
-        }
-        catch (InvalidOperationException)
-        {
-            return null;
-        }
     }
 
     private async Task<string> TypeYAndCaptureNotificationAsync(Hex1bTerminal terminal, CancellationToken ct)
@@ -120,10 +118,9 @@ public class StandardModeYankIntegrationTests : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Initial focus is on the table (RequestContentFocus excludes EditorNode)
-        // Allow render to settle before checking focus
-        await Task.Delay(100, ct);
-        Assert.IsFalse(IsFocusedOnEditor(),
+        // Initial focus is on the table (RequestContentFocus excludes EditorNode). The first
+        // root build requests it, so a later build observes the settled focus.
+        Assert.IsFalse((await _focus.NextAsync(_state!.App, ct)).FocusedNode is EditorNode,
             "Initial focus should not be on the editor");
 
         // Tab → editor
@@ -237,7 +234,7 @@ public class StandardModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.Tab)
             .WaitUntil(_ =>
             {
-                return _state is not null && _state.App.FocusedNode is not EditorNode;
+                return _state is not null && _focus.Poll(_state.App).FocusedNode is not EditorNode;
             }, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -317,19 +314,18 @@ public class StandardModeYankIntegrationTests : IDisposable
             .ApplyAsync(terminal, ct);
 
         Assert.IsNotNull(_state!.PeDetailEditorState);
-        Assert.IsTrue(_state.App.FocusedNode is EditorNode,
+        Assert.IsTrue(IsFocusedOnEditor(),
             "Detail popup editor should have focus");
 
-        // Escape closes popup
+        // Escape closes popup; focus was confirmed on the popup editor above, so the wait
+        // below can only pass once focus has moved off it.
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
             .WaitUntil(_ => _state!.PeDetailContent is null, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => !IsFocusedOnEditor(), TimeSpan.FromSeconds(5),
+                "Focus should return to table after popup closes")
             .Build()
             .ApplyAsync(terminal, ct);
-
-        await Task.Delay(100, ct);
-        Assert.IsFalse(_state.App.FocusedNode is EditorNode,
-            "Focus should return to table after popup closes");
 
         _cts!.Cancel();
         try { await runTask; }
@@ -471,21 +467,19 @@ public class StandardModeYankIntegrationTests : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Open and close detail popup
+        // Open the detail popup and wait for its editor to take focus, then close it. With
+        // focus confirmed on the popup editor first, the final wait can only pass once
+        // focus has moved off it.
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Enter)
             .WaitUntil(_ => _state!.PeDetailContent is not null, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => IsFocusedOnEditor(), TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Escape)
             .WaitUntil(_ => _state!.PeDetailContent is null, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => !IsFocusedOnEditor(), TimeSpan.FromSeconds(5),
+                "Focus should land on table after closing detail popup")
             .Build()
             .ApplyAsync(terminal, ct);
-
-        // Allow focus to settle after popup close
-        await Task.Delay(100, ct);
-
-        // Focus should be on a table, not an editor
-        Assert.IsFalse(_state!.App.FocusedNode is EditorNode,
-            "Focus should land on table after closing detail popup");
 
         _cts!.Cancel();
         try { await runTask; }
@@ -845,9 +839,19 @@ public class StandardModeYankIntegrationTests : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        Assert.IsTrue(_state!.PushAssembly(Samples.RichLibraryDll),
-            "PushAssembly should return to RichLibrary through the normal navigation path.");
+        // Push on the render thread, the way the diagnostics socket pushes assemblies, so the
+        // analyzer swap cannot interleave with an in-flight frame. 0 = pending, 1 = pushed,
+        // 2 = rejected.
+        var pushResult = 0;
+        _state!.PendingMutations.Enqueue(s =>
+            Volatile.Write(ref pushResult, s.PushAssembly(Samples.RichLibraryDll) ? 1 : 2));
         _state.App.Invalidate();
+        await new Hex1bTerminalInputSequenceBuilder()
+            .WaitUntil(_ => Volatile.Read(ref pushResult) != 0, TimeSpan.FromSeconds(10))
+            .Build()
+            .ApplyAsync(terminal, ct);
+        Assert.AreEqual(1, Volatile.Read(ref pushResult),
+            "PushAssembly should return to RichLibrary through the normal navigation path.");
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(_ => _state.NavigationStack.Count == 1
                 && string.Equals(
@@ -867,8 +871,11 @@ public class StandardModeYankIntegrationTests : IDisposable
             .Build()
             .ApplyAsync(terminal, ct);
 
-        _state.PeSubTab = PeSubTabId.TypeDef;
-        _state.RequestContentFocus();
+        _state.PendingMutations.Enqueue(s =>
+        {
+            s.PeSubTab = PeSubTabId.TypeDef;
+            s.RequestContentFocus();
+        });
         _state.App.Invalidate();
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(_ => _state.PeSubTab == PeSubTabId.TypeDef, TimeSpan.FromSeconds(5))
@@ -881,19 +888,24 @@ public class StandardModeYankIntegrationTests : IDisposable
             !t.FullName.StartsWith('<') && t.MethodCount > 0);
         Assert.IsNotNull(typeDef);
 
-        _state.PeFocusedKey = typeDef.Token;
-        _state.RequestContentFocus();
+        _state.PendingMutations.Enqueue(s =>
+        {
+            s.PeFocusedKey = typeDef.Token;
+            s.RequestContentFocus();
+        });
         _state.App.Invalidate();
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(_ => Equals(_state.PeFocusedKey, typeDef.Token), TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
-        // Press g to trigger cross-view jump to IL Inspector
+        // Press g to trigger cross-view jump to IL Inspector. The waits read the stack's Count
+        // rather than CrossViewBackTarget, whose Count-then-Peek can observe the render
+        // thread's Pop in between.
         await new Hex1bTerminalInputSequenceBuilder()
             .Type("g")
             .WaitUntil(_ => _state.CurrentTab == TabId.IlInspector
-                && _state.CrossViewBackTarget is not null,
+                && _state.CrossViewBackStack.Count > 0,
                 TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
@@ -904,7 +916,7 @@ public class StandardModeYankIntegrationTests : IDisposable
         // Esc 1: cross-view back to PE/Metadata — NOT assembly pop
         await new Hex1bTerminalInputSequenceBuilder()
             .Key(Hex1bKey.Escape)
-            .WaitUntil(_ => _state.CrossViewBackTarget is null, TimeSpan.FromSeconds(5))
+            .WaitUntil(_ => _state.CrossViewBackStack.Count == 0, TimeSpan.FromSeconds(5))
             .Build()
             .ApplyAsync(terminal, ct);
 
@@ -1034,7 +1046,7 @@ public class StandardModeYankIntegrationTests : IDisposable
             .Key(Hex1bKey.OemQuestion)
             .WaitUntil(_ =>
             {
-                return _state!.App.FocusedNode is TextBoxNode;
+                return _focus.Poll(_state!.App).FocusedNode is TextBoxNode;
             }, TimeSpan.FromSeconds(5))
             .Type("zzzznotanamespace")
             .Key(Hex1bKey.Enter)
@@ -1175,7 +1187,7 @@ public class StandardModeYankIntegrationTests : IDisposable
 
         // Ensure table has focus (not editor)
         Assert.IsNotNull(_state!.GeneralFocusedDep);
-        Assert.IsFalse(_state.App.FocusedNode is EditorNode);
+        Assert.IsFalse((await _focus.NextAsync(_state.App, ct)).FocusedNode is EditorNode);
 
         // Yank — flash should be set briefly then cleared
         await new Hex1bTerminalInputSequenceBuilder()
@@ -1816,13 +1828,10 @@ public class StandardModeYankIntegrationTests : IDisposable
         await new Hex1bTerminalInputSequenceBuilder()
             .WaitUntil(s => s.InAlternateScreen, TimeSpan.FromSeconds(10))
             .WaitUntil(s => s.ContainsText("Data Interpretation"), TimeSpan.FromSeconds(10))
+            .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5),
+                "Initial focus should be on the hex editor")
             .Build()
             .ApplyAsync(terminal, ct);
-
-        // Initial focus should be on the hex editor
-        await Task.Delay(100, ct);
-        Assert.IsTrue(IsFocusedOnEditor(_state!.HexEditorState),
-            "Initial focus should be on the hex editor");
 
         // Tab → data interp editor
         await new Hex1bTerminalInputSequenceBuilder()
@@ -2006,7 +2015,7 @@ public class StandardModeYankIntegrationTests : IDisposable
             .Type("/")
             .WaitUntil(_ =>
             {
-                return _state!.App.FocusedNode is TextBoxNode;
+                return _focus.Poll(_state!.App).FocusedNode is TextBoxNode;
             }, TimeSpan.FromSeconds(5))
             .Type("4D")
             .Key(Hex1bKey.Enter)
@@ -2025,7 +2034,7 @@ public class StandardModeYankIntegrationTests : IDisposable
             .Type("/")
             .WaitUntil(_ =>
             {
-                return _state!.App.FocusedNode is TextBoxNode;
+                return _focus.Poll(_state!.App).FocusedNode is TextBoxNode;
             }, TimeSpan.FromSeconds(5))
             .Key(Hex1bKey.Escape)
             .WaitUntil(_ => IsFocusedOnEditor(_state!.HexEditorState), TimeSpan.FromSeconds(5))

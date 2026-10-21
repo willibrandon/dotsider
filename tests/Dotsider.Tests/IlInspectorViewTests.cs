@@ -17,6 +17,7 @@ public class IlInspectorViewTests : IDisposable
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
+    private readonly AppFocusProbe _focus = new();
     private CancellationTokenSource? _cts;
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) CreateDotsiderApp(string dllPath)
@@ -34,6 +35,7 @@ public class IlInspectorViewTests : IDisposable
             {
                 _state ??= new DotsiderState(_hex1bApp!, dllPath);
                 dotsiderApp ??= new DotsiderApp(_state);
+                _focus.Observe(_hex1bApp!);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
             new Hex1bAppOptions
@@ -154,7 +156,7 @@ public class IlInspectorViewTests : IDisposable
         var stableCount = 0;
         await auto.WaitUntilAsync(_ =>
             {
-                if (_state!.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode) stableCount++;
+                if (_focus.Poll(_state!.App).FocusedNode is Hex1b.Nodes.ScrollPanelNode) stableCount++;
                 else stableCount = 0;
                 return stableCount >= 3;
             },
@@ -246,7 +248,7 @@ public class IlInspectorViewTests : IDisposable
         var stableCount = 0;
         await auto.WaitUntilAsync(_ =>
             {
-                if (_state!.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode)
+                if (_focus.Poll(_state!.App).FocusedNode is Hex1b.Nodes.ScrollPanelNode)
                     stableCount++;
                 else
                     stableCount = 0;
@@ -272,7 +274,7 @@ public class IlInspectorViewTests : IDisposable
         // The Tab3_TreeFocusedOnReturn_AfterEditorHadFocus test covers the
         // DownArrow-consumed-by-tree behavior separately; here we just verify
         // the jump set up the correct tree state and focus target.
-        Assert.IsTrue(_state.App.FocusedNode is Hex1b.Nodes.ScrollPanelNode,
+        Assert.IsTrue((await _focus.NextAsync(_state.App, ct)).FocusedNode is Hex1b.Nodes.ScrollPanelNode,
             "Focus must be on the tree after cross-view jump");
 
         _cts!.Cancel();

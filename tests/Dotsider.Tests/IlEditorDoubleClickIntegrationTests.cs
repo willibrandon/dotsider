@@ -22,6 +22,7 @@ public class IlEditorDoubleClickIntegrationTests : IDisposable
     private DotsiderState? _state;
     private CancellationTokenSource? _cts;
     private Task? _runTask;
+    private readonly AppFocusProbe _focus = new();
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) CreateDotsiderApp(string dllPath)
     {
@@ -39,6 +40,7 @@ public class IlEditorDoubleClickIntegrationTests : IDisposable
             {
                 _state ??= new DotsiderState(_hex1bApp!, dllPath);
                 dotsiderApp ??= new DotsiderApp(_state);
+                _focus.Observe(_hex1bApp!);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
             new Hex1bAppOptions
@@ -224,7 +226,7 @@ public class IlEditorDoubleClickIntegrationTests : IDisposable
         var auto = new Hex1bTerminalAutomator(terminal, defaultTimeout: TimeSpan.FromSeconds(5));
         await auto.KeyAsync(Hex1bKey.L, ct);
         await auto.WaitUntilAsync(_ =>
-            _state!.App.FocusedNode is EditorNode { State: var es }
+            _focus.Poll(_state!.App).FocusedNode is EditorNode { State: var es }
                 && ReferenceEquals(es, _state.IlEditorState),
             description: "IL editor focused");
 

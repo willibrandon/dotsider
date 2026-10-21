@@ -20,6 +20,7 @@ public class DynamicYankIntegrationTests : IDisposable
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
+    private readonly AppFocusProbe _focus = new();
     private CancellationTokenSource? _cts;
 
     private (Hex1bTerminal terminal, Hex1bApp app, CancellationToken ct) Launch(string dllPath)
@@ -39,6 +40,7 @@ public class DynamicYankIntegrationTests : IDisposable
             {
                 _state ??= new DotsiderState(_hex1bApp!, dllPath);
                 dotsiderApp ??= new DotsiderApp(_state);
+                _focus.Observe(_hex1bApp!);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
             new Hex1bAppOptions
@@ -53,12 +55,13 @@ public class DynamicYankIntegrationTests : IDisposable
 
     private bool IsFocusedOnEditor()
     {
-        return _state?.App.FocusedNode is EditorNode;
+        return _state is not null && _focus.Poll(_state.App).FocusedNode is EditorNode;
     }
 
     private bool IsFocusedOnEditor(EditorState? expectedState)
     {
-        return _state?.App.FocusedNode is EditorNode { State: var es }
+        return _state is not null
+                && _focus.Poll(_state.App).FocusedNode is EditorNode { State: var es }
                 && es == expectedState;
     }
 

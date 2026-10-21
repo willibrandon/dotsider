@@ -22,6 +22,7 @@ public class IlEditorLifecycleTests : IDisposable
     private Hex1bTerminal? _terminal;
     private Hex1bApp? _hex1bApp;
     private DotsiderState? _state;
+    private readonly AppFocusProbe _focus = new();
     private CancellationTokenSource? _cts;
 
     // ── Helpers ───────────────────────────────────────────────
@@ -55,6 +56,7 @@ public class IlEditorLifecycleTests : IDisposable
             {
                 _state ??= new DotsiderState(_hex1bApp!, dllPath);
                 dotsiderApp ??= new DotsiderApp(_state);
+                _focus.Observe(_hex1bApp!);
                 return Task.FromResult<Hex1bWidget>(dotsiderApp.Build(ctx));
             },
             new Hex1bAppOptions
@@ -89,8 +91,11 @@ public class IlEditorLifecycleTests : IDisposable
         var method = _state!.Analyzer.MethodDefs.First(m => m.Name == methodName);
         var typeDef = _state.Analyzer.TypeDefs.First(t => t.FullName == method.DeclaringType);
         var ns = !string.IsNullOrEmpty(typeDef.Namespace) ? typeDef.Namespace : "(global)";
-        _state.IlTreeExpansionState[$"ns:{ns}"] = true;
-        _state.IlTreeExpansionState[$"type:{method.DeclaringType}"] = true;
+        _state.PendingMutations.Enqueue(s =>
+        {
+            s.IlTreeExpansionState[$"ns:{ns}"] = true;
+            s.IlTreeExpansionState[$"type:{method.DeclaringType}"] = true;
+        });
         SelectMethodForRender(method);
 
         await new Hex1bTerminalInputSequenceBuilder()
@@ -100,23 +105,27 @@ public class IlEditorLifecycleTests : IDisposable
     }
 
     /// <summary>
-    /// Programmatically selects a method using the same extra-frame path as
-    /// non-user-driven navigation. A plain Invalidate can race an in-flight frame on
-    /// slower CI legs and leave the editor on the previous method until another input.
+    /// Programmatically selects a method on the render thread using the same extra-frame
+    /// path as non-user-driven navigation. A test-thread mutation or a plain Invalidate can
+    /// race an in-flight frame on slower CI legs and leave the editor on the previous method.
     /// </summary>
     private void SelectMethodForRender(MethodDefInfo method)
     {
-        _state!.IlSelectedMethod = method;
-        _state.SetIlFocusedTreeKey($"method:{method.Token}");
+        _state!.PendingMutations.Enqueue(s =>
+        {
+            s.IlSelectedMethod = method;
+            s.SetIlFocusedTreeKey($"method:{method.Token}");
+        });
+        _state.RequestExtraFrame();
     }
 
     /// <summary>
-    /// Requests editor focus and nudges a follow-up frame so the focus-ring update is
-    /// observed even if the immediate invalidate lands during an in-flight render.
+    /// Requests editor focus from the render thread, so the request lands in the same frame
+    /// that rebuilds the focus ring, and nudges a follow-up frame that observes the result.
     /// </summary>
     private void RequestEditorFocusForRender()
     {
-        _state!.App.RequestFocus(node => node is EditorNode);
+        _state!.PendingMutations.Enqueue(s => s.App.RequestFocus(node => node is EditorNode));
         _state.App.Invalidate();
         _state.RequestExtraFrame();
     }
@@ -290,7 +299,7 @@ public class IlEditorLifecycleTests : IDisposable
         await auto.WaitUntilAsync(
             _ =>
             {
-                editorNodeA = app.FocusedNode as EditorNode;
+                editorNodeA = _focus.Poll(app).FocusedNode as EditorNode;
                 return editorNodeA is not null;
             },
             description: "editor focused");
@@ -322,7 +331,7 @@ public class IlEditorLifecycleTests : IDisposable
             _ =>
             {
                 if (_state.IlEditorMethod?.Token != methodA.Token
-                    || app.FocusedNode is not EditorNode candidate
+                    || _focus.Poll(app).FocusedNode is not EditorNode candidate
                     || !ReferenceEquals(editorNodeA, candidate)
                     || candidate.ScrollOffset != scrollAfterMove)
                 {
@@ -365,23 +374,26 @@ public class IlEditorLifecycleTests : IDisposable
 
         // Focus editor programmatically
         RequestEditorFocusForRender();
-        await auto.WaitUntilAsync(_ => app.FocusedNode is EditorNode, description: "editor focused");
+        await auto.WaitUntilAsync(_ => _focus.Poll(app).FocusedNode is EditorNode, description: "editor focused");
 
         // Find a search query that matches in a DIFFERENT method
         var otherMethod = _state.Analyzer.MethodDefs.FirstOrDefault(m =>
             m.Token != firstMethod.Token && m.Rva > 0);
         if (otherMethod is null) { _cts!.Cancel(); await runTask; return; }
 
-        // Navigate to the other method via state (simulating search n)
-        IlInspectorView.NavigateToMatchForTest(_state, otherMethod);
-        await auto.WaitAsync(TimeSpan.FromMilliseconds(200), ct: ct);  // Wait for render cycle
+        // Navigate to the other method on the render thread (simulating search n)
+        _state.PendingMutations.Enqueue(s => IlInspectorView.NavigateToMatchForTest(s, otherMethod));
+        _state.RequestExtraFrame();
+        await auto.WaitUntilAsync(_ => _state.IlEditorMethod?.Token == otherMethod.Token,
+            description: "other method loaded");
 
         // Focus must be on an EditorNode that's in the focus ring (visible, not hidden)
-        var focused = app.FocusedNode;
+        var focus = await _focus.NextAsync(app, ct);
+        var focused = focus.FocusedNode;
         Assert.IsExactInstanceOfType<EditorNode>(focused);
 
         // The focused EditorNode must be in Focusables (not hidden in ResponsiveWidget)
-        Assert.Contains(focused, app.Focusables);
+        Assert.Contains(focused, focus.Focusables);
 
         _cts!.Cancel();
         await runTask;
