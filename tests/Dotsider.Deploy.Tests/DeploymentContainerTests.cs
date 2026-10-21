@@ -6,6 +6,7 @@ namespace Dotsider.Deploy.Tests;
 /// Set DOTSIDER_RUN_DEPLOY_INTEGRATION to 1 to enable the privileged Docker fixture.
 /// </summary>
 [TestClass]
+[OSCondition(OperatingSystems.Linux)]
 public sealed class DeploymentContainerTests
 {
     private static DockerDeployFixture? s_fixture;

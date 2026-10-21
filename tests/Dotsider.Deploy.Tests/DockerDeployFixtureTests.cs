@@ -4,6 +4,7 @@ namespace Dotsider.Deploy.Tests;
 /// Verifies that deployment artifacts and their Docker image use the same Linux architecture.
 /// </summary>
 [TestClass]
+[OSCondition(OperatingSystems.Linux)]
 public sealed class DockerDeployFixtureTests
 {
     /// <summary>

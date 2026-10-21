@@ -8,6 +8,7 @@ namespace Dotsider.Deploy.Tests;
 /// Manifest paths are constrained to the sample root.
 /// </summary>
 [TestClass]
+[OSCondition(OperatingSystems.Linux)]
 public sealed class SampleManifestTests
 {
     private static readonly string[] s_expectedPaths = ["./nested/a.json", "./z.dll"];
